@@ -39,8 +39,7 @@ Thumbs.db
 # CAT Roster Information #
 ##########################
 *.roster*
-whois/roster/*
-whois/old_roster/*
+whois/
 *.nfs*
 
 # CAT Confidential Files #
@@ -57,3 +56,4 @@ log.out
 #################
 read
 ascii_art/
+commands/
