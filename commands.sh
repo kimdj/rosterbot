@@ -7,6 +7,7 @@ read nick chan msg
 IFS=''                  # internal field separator; variable which defines the char(s)
                         # used to separate a pattern into tokens for some operations
                         # (i.e. space, tab, newline)
+
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 BOT_NICK="$(grep -P "BOT_NICK=.*" ${DIR}/bot.sh | cut -d '=' -f 2- | tr -d '"')"
 
@@ -33,7 +34,7 @@ function send {
 
 function whoisSubroutine {
 
-    # Parse based on CAT handle.
+    # Parse based on CAT handle.    --------------------------------------------------------------------------
 
     found=0    # Initialize found flag to 0.
     dir=`pwd`
@@ -90,7 +91,7 @@ function whoisSubroutine {
         say $chan "Usage: !whois username"
     fi
 
-    # Parse based on login name.
+    # Parse based on login name.    --------------------------------------------------------------------------
 
     if [ $# -gt 0 ] ; then                          # If an arg exists and not found based on CAT handle...
         login=$(echo $1 | sed 's/ .*//')           # Just capture the first word.
@@ -120,7 +121,7 @@ function whoisSubroutine {
         say $chan "Usage: !whois username"
     fi
 
-    # Parse based on real name.
+    # Parse based on real name.    --------------------------------------------------------------------------
 
     if [ $# -gt 0 ] ; then                          # If an arg exists and not found based on CAT handle...
         realname=$(echo $1 | sed 's/\(.* .*\) .*//')           # Just capture the first word.
@@ -215,9 +216,9 @@ function titleSubroutine {
 
 function helpSubroutine {
     if [ $1 == "whois" ] ; then
-        say $chan "Usage: !whois _sharp || !whois david kim || !whois dkim || !title _sharp is a dog"
+        say $chan "Usage: !whois handle | !whois real name | !whois cat_username | !title handle is an aspiring droog"
     elif [ $1 == "title" ] ; then
-        say $chan "Usage: !title _sharp is a cat || !title _sharp"
+        say $chan "Usage: !title handle is a droog, aspiring CLAW | !title handle"
     fi
 }
 
@@ -231,61 +232,48 @@ function helpSubroutine {
 
 # Help Command.
 
-if has "$msg" "!rosterbot" ; then
+if has "$msg" "^!rosterbot$" ; then
     helpSubroutine whois
 
-elif has "$msg" "rosterbot: help" ; then
+elif has "$msg" "^rosterbot: help$" ; then
     helpSubroutine whois
 
 # Alive?.
 
-elif has "$msg" "rosterbot: !alive?" || has "$msg" "!alive?" ; then
-    a="^rosterbot:[[:space:]]!alive?"
-    b="^gb:[[:space:]]!alive?"
-    c="^!alive?"
-    if [[ "$msg" =~ $a ]] || [[ "$msg" =~ $b ]] || [[ "$msg" =~ $c ]] ; then
-        say $chan "running!"
-    fi
+elif has "$msg" "^!alive$" ; then
+    say $chan "running!"
 
 # Whois.
 
-elif has "$msg" "!whois" ; then
-    if [[ "$msg" =~ ^!whois$ ]] ; then
-        helpSubroutine whois
-    elif [[ "$msg" =~ ^!whois ]] ; then
-        handle=$(echo $msg | sed -r 's/^.{7}//') 
-        whoisSubroutine $handle
-    fi
+elif has "$msg" "^!whois$" ; then
+    helpSubroutine whois
+    
+elif has "$msg" "^!whois " ; then
+    handle=$(echo $msg | sed -r 's/^.{7}//')  # cut out '!whois ' from $msg
+    whoisSubroutine $handle
 
 # Change title.
 
-elif has "$msg" "!title" ; then
-    if [[ "$msg" =~ ^!title$ ]] ; then
-        helpSubroutine title
-    elif [[ "$msg" =~ ^!title ]] ; then
-        title=$(echo $msg | sed -r 's/^.{7}//') 
-        titleSubroutine $title
-    fi
+elif has "$msg" "^!title$" ; then
+    helpSubroutine title
 
-# Inject a command.
+elif has "$msg" "^!title " ; then
+    title=$(echo $msg | sed -r 's/^.{7}//')  # cut out '!title ' from $msg
+    titleSubroutine $title
+
 # Have rosterbot send an IRC command to the IRC server.
-elif has "$msg" "!injectcmd" ; then
-    if [[ $nick == "_sharp" ]] || [[ $nick == "MattDamon" ]]; then    # only _sharp can execute this command
-        if [[ "$msg" =~ ^!injectcmd ]] ; then
-            message=$(echo $msg | sed -r 's/^.{11}//') 
-            send "$message"
-        fi
-    fi
+
+elif has "$msg" "^!injectcmd " && [[ $nick == "_sharp" ]] ; then
+    cmd=$(echo $msg | sed -r 's/^.{11}//')
+    send "$cmd"
 
 # Have rosterbot send a message.
-elif has "$msg" "!sendcmd" ; then
-    if [[ $nick == "_sharp" ]] || [[ $nick == "MattDamon" ]]; then    # only _sharp can execute this command
-        if [[ "$msg" =~ ^!sendcmd ]] ; then
-            buffer=$(echo $msg | sed -re 's/^.{9}//')
-            user=$(echo $buffer | sed -e "s| .*||")
-            message=$(echo $buffer | cut -d " " -f2-)
-            say $user "$message"
-        fi
-    fi
+
+elif has "$msg" "^!sendcmd " && [[ $nick == "_sharp" ]] ; then
+    buffer=$(echo $msg | sed -re 's/^.{9}//')
+    dest=$(echo $buffer | sed -e "s| .*||")
+    message=$(echo $buffer | cut -d " " -f2-)
+    say $dest "$message"
 fi
+
 #################################################  Commands End  ##################################################
