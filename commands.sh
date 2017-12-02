@@ -34,19 +34,19 @@ function send {
 
 function whoisSubroutine {
 
-    echo "$chan" > requester.tmp            # Store $chan value (original sender's nick) in a file.
+    echo "$chan" > requester.tmp            # Store $chan (client's nick) in a file.
     found=0                                 # Initialize found flag to 0.
 
     # Parse based on CAT handle.    ----------------------------------------------------------------------------------
 
-    handle=$(echo $1 | sed 's/ .*//')           # Just capture the first word.
+    handle=$(echo $1 | sed 's/ .*//')           # Capture the first word of the argument (i.e. first word -> first).
 
     for file in $(pwd)/whois/roster/* ; do      # Loop through each roster.
 
         # Look for the Handle in the file.
         # Otherwise, continue on the next file.
-        # Note: grep matches based on anchors ^ and $.
-        # The purpose is to mitigate unintentional substring matches.
+        # Note: grep matches based on regex anchors ^ (start-of-line) and $ (end-of-line).
+        # The purpose is to mitigate unintented substring matches.
         handleLine=$(cat $file | grep -in "^handle: $handle$")                              # 129:handle: handle
         if [ $handleLine ] ; then
             handleLineNumber=$(echo $handleLine | sed -e 's/\([0-9]*\):.*/\1/')             # 129
@@ -57,34 +57,43 @@ function whoisSubroutine {
         # Get the Handle.
         handle=$(sed -n ${handleLineNumber}p $file | grep -Po '(?<=(handle: )).*')          # handle
 
+        # Get the cat username and oit username.
+        loginLineNumber="$(($handleLineNumber - 2))"                                        # 127
+        login=$(sed -n ${loginLineNumber}p $file | grep -Po '(?<=(login: )).*')             # cat login
+        echo "$login" > catLogin.tmp                                                        # Store cat login in a file.
+        privmsg=$(echo '!cat2oit' $login)                                                   # Send to catbot -> !oit2cat username
+        say "catbot" $privmsg                                                               # Refer to "Handler for catbot's !cat2oit responses" section below.
+
         # Get the Username.
-        # Note: subpath == username in most cases.
+        # Note: subpath == cat username in most cases.
         usernameLineNumber="$(($handleLineNumber - 1))"                                     # 128
         subpath=$(sed -n ${usernameLineNumber}p $file | grep -Po '(?<=(subpath: )).*')      # username
-        if [ $file == "/home/dkim/sandbox/rosterbot/whois/roster/staff.roster" ] ; then
-            say $chan "Try -> https://chronicle.cat.pdx.edu/projects/cat/wiki/$subpath"
-        else
-            say $chan "Try -> https://chronicle.cat.pdx.edu/projects/braindump/wiki/$subpath"
-        fi
 
         # Get the Realname.
         realnameLineNumber="$(($handleLineNumber + 1))"                                     # 130
         realname=$(sed -n ${realnameLineNumber}p $file | grep -Po '(?<=(realname: )).*')    # login
-        say $chan "$handle's real name is $realname"
 
         # Get the Title.
         titleLineNumber="$(($handleLineNumber + 2))"                                        # 131
         title=$(sed -n ${titleLineNumber}p $file | grep -Po '(?<=(title: )).*')             # title
-        if [ $title ] ; then
-            say $chan "$handle $title"
-        fi
 
         # Get the Batch and Year.
         year=$(sed -n 1p $file | grep -Po '(?<=(year: )).*')                                # 2017-2018
         batch=$(sed -n 2p $file | grep -Po '(?<=(batch: )).*')                              # Yet-To-Be-Named (YTBN)
+
+        # Send results back to the client.
+        if [ $file == "/home/dkim/sandbox/rosterbot/whois/roster/staff.roster" ] ; then     # case: match was found in staff.roster
+            say $chan "Try -> https://chronicle.cat.pdx.edu/projects/cat/wiki/$subpath"
+        else
+            say $chan "Try -> https://chronicle.cat.pdx.edu/projects/braindump/wiki/$subpath"
+        fi
+        say $chan "${handle}'s real name is ${realname}"
+        if [ $title ] ; then                                                                # case: title field entry exists
+            say $chan "$handle $title"
+        fi
         say $chan "$handle belongs to the $batch, $year"
 
-        found=$(($found + 1))    # Set found flag to 1.
+        found=$(($found + 1))                                                               # Set found flag to 1.
     done
 
     # Parse based on login name.    ----------------------------------------------------------------------------------
@@ -278,7 +287,7 @@ elif has "$msg" "^!whois " ; then
     handle=$(echo $msg | sed -r 's/^.{7}//')                # cut out the leading '!whois ' from $msg
     whoisSubroutine $handle
 
-# Handler for catbot's responses. (Whois)
+# Handler for catbot's !oit2cat responses. (Whois)
 
 elif has "$msg" "^oit uid \(or alias\): " ; then
     oitLogin=$(echo $msg | sed -r 's/^.{20}//')             # Get the oitLogin.
@@ -294,6 +303,23 @@ elif has "$msg" "^name: " ; then
     rm requester.tmp oitLogin.tmp
 
 elif has "$msg" "^No matching MCECS uid found for " ; then
+    while read dest ; do
+        say $dest $msg
+    done < requester.tmp
+    rm requester.tmp
+
+# Handler for catbot's !cat2oit responses. (Whois)
+elif has "$msg" "^cat uid \(or alias\): .* -> oit uid: " ; then
+    oitLogin2=$(echo $msg | sed -e "s|.* -> oit uid: \(.*\)|\1|")
+    while read dest ; do
+        while read login ; do
+            # echo $oitLogin2 > oitLogin2.tmp
+            say $dest "oit username: ${oitLogin2}, cat username: ${login}"
+        done < catLogin.tmp
+    done < requester.tmp
+    rm requester.tmp catLogin.tmp
+
+elif has "$msg" "^No matching OIT uid found for " ; then
     while read dest ; do
         say $dest $msg
     done < requester.tmp
