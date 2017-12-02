@@ -34,14 +34,17 @@ function send {
 
 function whoisSubroutine {
 
-    echo "$chan" > requester.tmp            # Store $chan (client's nick) in a file.
+    echo "$chan" > requester.tmp            # Store $chan (requester's nick) in a file.
     found=0                                 # Initialize found flag to 0.
+    pathToStaffRoster="$(pwd)/whois/roster/staff.roster"
+    rosterList=( $(pwd)/whois/roster/*.roster )
 
     # Parse based on CAT handle.    ----------------------------------------------------------------------------------
 
     handle=$(echo $1 | sed 's/ .*//')           # Capture the first word of the argument (i.e. first word -> first).
 
-    for file in $(pwd)/whois/roster/* ; do      # Loop through each roster.
+    # say _sharp "Looking for Handle..."          # Debugging
+    for file in "${rosterList[@]}" ; do       # Loop through each roster.
 
         # Look for the Handle in the file.
         # Otherwise, continue on the next file.
@@ -82,7 +85,7 @@ function whoisSubroutine {
         batch=$(sed -n 2p $file | grep -Po '(?<=(batch: )).*')                              # Yet-To-Be-Named (YTBN)
 
         # Send results back to the client.
-        if [ $file == "/home/dkim/sandbox/rosterbot/whois/roster/staff.roster" ] ; then     # case: match was found in staff.roster
+        if [ $file == "${pathToStaffRoster}" ] ; then     # case: match was found in staff.roster
             say $chan "Try -> https://chronicle.cat.pdx.edu/projects/cat/wiki/$subpath"
         else
             say $chan "Try -> https://chronicle.cat.pdx.edu/projects/braindump/wiki/$subpath"
@@ -98,10 +101,11 @@ function whoisSubroutine {
 
     # Parse based on login name.    ----------------------------------------------------------------------------------
 
-    if [ "$found" -eq "0" ] ; then
+    if [ "$found" -eq "0" ] ; then                      # If a Handle match was found, skip this if block.
         login=$(echo $1 | sed 's/ .*//')                # Just capture the first word.
 
-        for file in $(pwd)/whois/roster/* ; do          # Loop through each roster.
+        # say _sharp "Looking for Login..."               # Debugging
+        for file in "${rosterList[@]}" ; do           # Loop through each roster.
 
             # Look for the Login in the file.
             # Otherwise, continue on the next file.
@@ -125,10 +129,11 @@ function whoisSubroutine {
 
     # Parse based on real name.    ----------------------------------------------------------------------------------
 
-    if [ "$found" -eq "0" ] ; then
+    if [ "$found" -eq "0" ] ; then                              # If a Handle match or Login match was found, skip this if block.
         realname=$(echo $1 | sed 's/\(.* .*\) .*//')            # Just capture the first word.
 
-        for file in $(pwd)/whois/roster/* ; do                  # Loop through each roster.
+        # say _sharp "Looking for Real Name..."                 # Debugging
+        for file in "${rosterList[@]}" ; do                   # Loop through each roster.
 
             # Look for the real name in the file.
             # Otherwise, continue on the next file.
@@ -168,8 +173,9 @@ function whoisSubroutine2 {
     dest=$1
     oitLogin=$2
     found=0    # Initialize found flag to 0.
+    rosterList=( $(pwd)/whois/roster/*.roster )
 
-    for file in $(pwd)/whois/roster/* ; do                  # Loop through each roster.
+    for file in "${rosterList[@]}" ; do                  # Loop through each roster.
 
         # Find a line containing the real name.
         # Otherwise, continue on the next file.
@@ -203,13 +209,14 @@ function titleSubroutine {
 
     handle=$(echo $1 | sed 's/ .*//')               # Just capture the first word.
     newTitle=$(echo $1 | cut -d " " -f2-)           # Capture the remaining words.
+    rosterList=( $(pwd)/whois/roster/*.roster )
 
     if [ ! $handle ] ; then
         say $chan "input error"
         return 1
     fi
 
-    for file in $(pwd)/whois/roster/* ; do          # Loop through each roster.
+    for file in "${rosterList[@]}" ; do          # Loop through each roster.
 
         # Skip the staff roster.  (i.e. only titles within batch rosters can be edited)
         if [ $(echo $file | grep staff) ] ; then
@@ -254,10 +261,16 @@ function titleSubroutine {
 }
 
 function helpSubroutine {
+
+    # Randomly select a Handle and a Real Name as an example for usage.
+    handle=$( cat $(pwd)/whois/roster/*.roster | egrep 'handle: [^ ]' | sed -e 's|handle: ||' | sort -R | head -n 1 )
+    handle2=$( cat $(pwd)/whois/roster/*.roster | egrep 'handle: [^ ]' | sed -e 's|handle: ||' | sort -R | head -n 1 )
+    rndRealname=$( cat $(pwd)/whois/roster/*.roster | egrep 'realname: [^ ]' | sed -e 's|realname: ||' | sort -R | head -n 1 )
+
     if [ $1 == "whois" ] ; then
-        say $chan "Usage: !whois handle | !whois real name | !whois catUname | !whois oitUname | !title handle is an aspiring droog"
+        say $chan "Usage: !whois ${handle} | !whois ${rndRealname} | !whois CATusername | !whois OITusername | !title ${handle2} is a DROOG-1, ..."
     elif [ $1 == "title" ] ; then
-        say $chan "Usage: !title handle is a droog, aspiring CLAW | !title handle"
+        say $chan "Usage: !title ${handle} is a CLAW-1, ... | !title ${handle2}"
     fi
 }
 
