@@ -98,62 +98,66 @@ function whoisSubroutine {
 
     # Parse based on login name.    ----------------------------------------------------------------------------------
 
-    login=$(echo $1 | sed 's/ .*//')                # Just capture the first word.
+    if [ "$found" -eq "0" ] ; then
+        login=$(echo $1 | sed 's/ .*//')                # Just capture the first word.
 
-    for file in $(pwd)/whois/roster/* ; do          # Loop through each roster.
+        for file in $(pwd)/whois/roster/* ; do          # Loop through each roster.
 
-        # Look for the Login in the file.
-        # Otherwise, continue on the next file.
-        # Note: grep matches based on anchors ^ and $.
-        # The purpose is to mitigate unintentional substring matches.
-        loginLine=$(cat $file | grep -in "^login: $login$")                                 # 129:login: login
-        if [ $loginLine ] ; then
-            loginLineNumber=$(echo $loginLine | sed -e 's/\([0-9]*\):.*/\1/')               # 129
-        else
-            continue
-        fi
+            # Look for the Login in the file.
+            # Otherwise, continue on the next file.
+            # Note: grep matches based on anchors ^ and $.
+            # The purpose is to mitigate unintentional substring matches.
+            loginLine=$(cat $file | grep -in "^login: $login$")                                 # 129:login: login
+            if [ $loginLine ] ; then
+                loginLineNumber=$(echo $loginLine | sed -e 's/\([0-9]*\):.*/\1/')               # 129
+            else
+                continue
+            fi
 
-        # Get the Handle.
-        handleLineNumber="$(($loginLineNumber + 2))"                                        # 128
-        handle=$(sed -n ${handleLineNumber}p $file | grep -Po '(?<=(handle: )).*')          # username
-        say $chan "$handle"
+            # Get the Handle.
+            handleLineNumber="$(($loginLineNumber + 2))"                                        # 128
+            handle=$(sed -n ${handleLineNumber}p $file | grep -Po '(?<=(handle: )).*')          # username
+            say $chan "$handle"
 
-        found=$(($found + 1))    # Set found flag to 1.
-    done
+            found=$(($found + 1))    # Set found flag to 1.
+        done
+    fi
 
     # Parse based on real name.    ----------------------------------------------------------------------------------
 
-    realname=$(echo $1 | sed 's/\(.* .*\) .*//')            # Just capture the first word.
-
-    for file in $(pwd)/whois/roster/* ; do                  # Loop through each roster.
-
-        # Look for the real name in the file.
-        # Otherwise, continue on the next file.
-        # Note: grep matches based on anchors ^ and $.
-        # The purpose is to mitigate unintentional substring matches.
-        realnameLine=$(cat $file | grep -in "^realname:" | grep -in " ${realname} \| ${realname}$" | sed -e 's/\([0-9]*\)://')          # 129:realname: realname
-        if [ $realnameLine ] ; then
-            realnameLineNumber=$(echo $realnameLine | sed -e 's/\([0-9]*\):.*/\1/')         # 129
-        else
-            continue
-        fi
-
-        # Get the Handle.
-        handleLineNumber="$(($realnameLineNumber - 1))"                                     # 130
-        handle=$(sed -n ${handleLineNumber}p $file | grep -Po '(?<=(handle: )).*')          # handle
-
-        # Get the Realname.
-        _realname=$(sed -n ${realnameLineNumber}p $file | grep -Po '(?<=(realname: )).*')   # realname
-        say $chan "${handle}"
-
-        found=$(($found + 1))                               # Set found flag to 1.
-    done
-
-    # If a match was not found, ask catbot.
-    # Refer to "Handler for catbot's responses" section below.
     if [ "$found" -eq "0" ] ; then
-        privmsg=$(echo '!oit2cat' $1)                       # Send to catbot -> !oit2cat username
-        say "catbot" $privmsg
+        realname=$(echo $1 | sed 's/\(.* .*\) .*//')            # Just capture the first word.
+
+        for file in $(pwd)/whois/roster/* ; do                  # Loop through each roster.
+
+            # Look for the real name in the file.
+            # Otherwise, continue on the next file.
+            # Note: grep matches based on anchors ^ and $.
+            # The purpose is to mitigate unintentional substring matches.
+            realnameLine=$(cat $file | grep -in "^realname:" | grep -in " ${realname} \| ${realname}$" | sed -e 's/\([0-9]*\)://')          # 129:realname: realname
+            if [ $realnameLine ] ; then
+                realnameLineNumber=$(echo $realnameLine | sed -e 's/\([0-9]*\):.*/\1/')         # 129
+            else
+                continue
+            fi
+
+            # Get the Handle.
+            handleLineNumber="$(($realnameLineNumber - 1))"                                     # 130
+            handle=$(sed -n ${handleLineNumber}p $file | grep -Po '(?<=(handle: )).*')          # handle
+
+            # Get the Realname.
+            _realname=$(sed -n ${realnameLineNumber}p $file | grep -Po '(?<=(realname: )).*')   # realname
+            say $chan "${handle}"
+
+            found=$(($found + 1))                               # Set found flag to 1.
+        done
+
+        # If a match was not found, ask catbot.
+        # Refer to "Handler for catbot's responses" section below.
+        if [ "$found" -eq "0" ] ; then
+            privmsg=$(echo '!oit2cat' $1)                       # Send to catbot -> !oit2cat username
+            say "catbot" $privmsg
+        fi
     fi
 }
 
