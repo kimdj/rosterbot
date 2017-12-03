@@ -3,13 +3,14 @@
 # Copyright (c) 2017 David Kim
 # This program is licensed under the "MIT License".
 
-read nick chan msg
+read nick chan msg      # Assign the 3 arguments to nick, chan and msg.
+
 IFS=''                  # internal field separator; variable which defines the char(s)
                         # used to separate a pattern into tokens for some operations
                         # (i.e. space, tab, newline)
 
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-BOT_NICK="$(grep -P "BOT_NICK=.*" ${DIR}/bot.sh | cut -d '=' -f 2- | tr -d '"')"
+BOT_NICK="$(grep -P "BOT_NICK=.*" ${DIR}/rosterbot.sh | cut -d '=' -f 2- | tr -d '"')"
 
 if [ "$chan" = "$BOT_NICK" ] ; then chan="$nick" ; fi
 
@@ -22,7 +23,7 @@ function say { echo "PRIVMSG $1 :$2" ; }
 function send {
     while read -r line; do
       newdate=`date +%s%N`
-      if [ $prevdate -gt $newdate ] ; then
+      if [ "$prevdate" -gt "$newdate" ] ; then
         sleep `bc -l <<< "($prevdate - $newdate) / $nanos"`
         newdate=`date +%s%N`
       fi
@@ -32,10 +33,12 @@ function send {
     done <<< "$1"
 }
 
+function join_by { local IFS="$1" ; shift ; echo "$*" ; }
+
 function whoisSubroutine {
 
-    echo "$chan" > requester.tmp            # Store $chan (requester's nick) in a file.
-    found=0                                 # Initialize found flag to 0.
+    echo "$chan" > requester.tmp                # Store $chan (requester's nick) in a file.
+    found=0                                     # Initialize found flag to 0.
     pathToStaffRoster="$(pwd)/whois/roster/staff.roster"
     rosterList=( $(pwd)/whois/roster/*.roster )
 
@@ -43,8 +46,8 @@ function whoisSubroutine {
 
     handle=$(echo $1 | sed 's/ .*//')           # Capture the first word of the argument (i.e. first word -> first).
 
-    # say _sharp "Looking for Handle..."          # Debugging
-    for file in "${rosterList[@]}" ; do       # Loop through each roster.
+    # say _sharp "Looking for Handle..."        # Debugging
+    for file in "${rosterList[@]}" ; do         # Loop through each roster.
 
         # Look for the Handle in the file.
         # Otherwise, continue on the next file.
@@ -64,7 +67,7 @@ function whoisSubroutine {
         loginLineNumber="$(($handleLineNumber - 2))"                                        # 127
         login=$(sed -n ${loginLineNumber}p $file | grep -Po '(?<=(login: )).*')             # cat login
         echo "$login" > catLogin.tmp                                                        # Store cat login in a file.
-        privmsg=$(echo '!cat2oit' $login)                                                   # Send to catbot -> !oit2cat username
+        privmsg=$(echo '!cat2oit' $login)                                                   # Send to catbot -> !cat2oit username
         say "catbot" $privmsg                                                               # Refer to "Handler for catbot's !cat2oit responses" section below.
 
         # Get the Username.
@@ -85,7 +88,7 @@ function whoisSubroutine {
         batch=$(sed -n 2p $file | grep -Po '(?<=(batch: )).*')                              # Yet-To-Be-Named (YTBN)
 
         # Send results back to the client.
-        if [ $file == "${pathToStaffRoster}" ] ; then     # case: match was found in staff.roster
+        if [ $file == "${pathToStaffRoster}" ] ; then                                       # case: match was found in staff.roster
             say $chan "Try -> https://chronicle.cat.pdx.edu/projects/cat/wiki/$subpath"
         else
             say $chan "Try -> https://chronicle.cat.pdx.edu/projects/braindump/wiki/$subpath"
@@ -105,8 +108,7 @@ function whoisSubroutine {
     if [ "$found" -eq "0" ] ; then                      # If a Handle match was found, skip this if block.
         login=$(echo $1 | sed 's/ .*//')                # Just capture the first word.
 
-        # say _sharp "Looking for Login..."               # Debugging
-        for file in "${rosterList[@]}" ; do           # Loop through each roster.
+        for file in "${rosterList[@]}" ; do             # Loop through each roster.
 
             # Look for the Login in the file.
             # Otherwise, continue on the next file.
@@ -133,35 +135,53 @@ function whoisSubroutine {
     if [ "$found" -eq "0" ] ; then                              # If a Handle match or Login match was found, skip this if block.
         realname=$(echo $1 | sed 's/\(.* .*\) .*//')            # Just capture the first word.
 
-        # say _sharp "Looking for Real Name..."                 # Debugging
-        for file in "${rosterList[@]}" ; do                   # Loop through each roster.
+        arr=()                                                  # Declare an empty array.  (list of entries found)
+        for file in "${rosterList[@]}" ; do                     # Loop through each roster.
 
             # Look for the real name in the file.
             # Otherwise, continue on the next file.
             # Note: grep matches based on anchors ^ and $.
             # The purpose is to mitigate unintentional substring matches.
-            realnameLine=$(cat $file | grep -in "^realname:" | grep -in " ${realname} \| ${realname}$" | sed -e 's/\([0-9]*\)://')          # 129:realname: realname
+            realnameLine=$(cat $file | grep -in "^realname:" | grep -in " ${realname} \| ${realname}$" | sed -e 's/\([0-9]*\)://')          # 101:realname: realname ... (0, 1, or more lines)
             if [ $realnameLine ] ; then
-                realnameLineNumber=$(echo $realnameLine | sed -e 's/\([0-9]*\):.*/\1/')         # 129
-            else
-                continue
+                while read -r line ; do                      # For each found entry...
+                    realnameLineNumber=$(echo ${line} | sed -e 's/\([0-9]*\):.*/\1/')                       # 101
+
+                    # Get the Handle.
+                    handleLineNumber="$((${realnameLineNumber} - 1))"                                       # 100
+                    handle=$(sed -n ${handleLineNumber}p $file | grep -Po '(?<=(handle: )).*')              # handle
+
+                    # Get the Realname.
+                    _realname=$(sed -n ${realnameLineNumber}p $file | grep -Po '(?<=(realname: )).*')       # realname
+                    handle=$( echo $handle | sed 's| |%20|g')                                                # Temporarily convert spaces to URL-encoded char code within Handles
+
+                    # # Only append to arr if Handle exists for the user.
+                    # if [ $handle ] ; then
+                    #     arr+=" ${handle}"
+                    # else
+                    #     noHandle=$( echo "[Handle entry missing for ${_realname}]" | sed 's| |%20|g' )  # case: Real Name found, but Handle entry doesn't exist.
+                    #     arr+=" ${noHandle}"
+                    # fi
+
+                    # found=$(($found + 1))                               # Set found flag to 1.
+
+                    # Only append to arr if Handle exists for the user.
+                    if [ $handle ] ; then
+                        arr+=" ${handle}"
+                        found=$(($found + 1))                               # Set found flag to 1.
+                    fi
+                done <<< "$realnameLine"
             fi
-
-            # Get the Handle.
-            handleLineNumber="$(($realnameLineNumber - 1))"                                     # 130
-            handle=$(sed -n ${handleLineNumber}p $file | grep -Po '(?<=(handle: )).*')          # handle
-
-            # Get the Realname.
-            _realname=$(sed -n ${realnameLineNumber}p $file | grep -Po '(?<=(realname: )).*')   # realname
-            say $chan "${handle}"
-
-            found=$(($found + 1))                               # Set found flag to 1.
         done
+
+        separator=" ~ "                                                 # e.g. John Doe, Bob Smith, Kevin Ware
+        result=$( echo ${arr[@]} | sed "s/ /${separator}/g" | sed "s/^${separator}//" | sed 's/%20/ /g')
+        say $chan "${result}"
 
         # If a match was not found, ask catbot.
         # Refer to "Handler for catbot's responses" section below.
         if [ "$found" -eq "0" ] ; then
-            privmsg=$(echo '!oit2cat' $1)                       # Send to catbot -> !oit2cat username
+            privmsg=$(echo '!oit2cat' $1)                               # Send to catbot -> !oit2cat username
             say "catbot" $privmsg
         fi
     fi
@@ -176,7 +196,7 @@ function whoisSubroutine2 {
     found=0    # Initialize found flag to 0.
     rosterList=( $(pwd)/whois/roster/*.roster )
 
-    for file in "${rosterList[@]}" ; do                  # Loop through each roster.
+    for file in "${rosterList[@]}" ; do                                 # Loop through each roster.
 
         # Find a line containing the real name.
         # Otherwise, continue on the next file.
@@ -208,8 +228,8 @@ function whoisSubroutine2 {
 function titleSubroutine {
     found=0                                             # Initialize found flag to 0.
 
-    handle=$(echo $1 | sed 's/ .*//')               # Just capture the first word.
-    newTitle=$(echo $1 | cut -d " " -f2-)           # Capture the remaining words.
+    handle=$(echo $1 | sed 's/ .*//')                   # Just capture the first word.
+    newTitle=$(echo $1 | cut -d " " -f2-)               # Capture the remaining words.
     rosterList=( $(pwd)/whois/roster/*.roster )
 
     if [ ! $handle ] ; then
@@ -217,7 +237,7 @@ function titleSubroutine {
         return 1
     fi
 
-    for file in "${rosterList[@]}" ; do          # Loop through each roster.
+    for file in "${rosterList[@]}" ; do                 # Loop through each roster.
 
         # Skip the staff roster.  (i.e. only titles within batch rosters can be edited)
         if [ $(echo $file | grep staff) ] ; then
@@ -307,13 +327,13 @@ elif has "$msg" "^!whois$" ; then
     helpSubroutine whois
     
 elif has "$msg" "^!whois " ; then
-    handle=$(echo $msg | sed -r 's/^.{7}//')                # cut out the leading '!whois ' from $msg
-    whoisSubroutine $handle
+    searchString=$(echo $msg | sed -r 's/^.{7}//')              # cut out the leading '!whois ' from $msg
+    whoisSubroutine ${searchString}
 
 # Handler for catbot's !oit2cat responses. (Whois)
 
 elif has "$msg" "^oit uid \(or alias\): " ; then
-    oitLogin=$(echo $msg | sed -r 's/^.{20}//')             # Get the oitLogin.
+    oitLogin=$(echo $msg | sed -r 's/^.{20}//')                 # Get the oitLogin.
     echo "$oitLogin" > oitLogin.tmp
 
 elif has "$msg" "^name: " ; then
@@ -323,13 +343,13 @@ elif has "$msg" "^name: " ; then
             whoisSubroutine2 $dest $oitLogin
         done < oitLogin.tmp
     done < requester.tmp
-    rm requester.tmp oitLogin.tmp
+    rm requester.tmp oitLogin.tmp catLogin.tmp
 
 elif has "$msg" "^No matching MCECS uid found for " ; then
     while read dest ; do
         say $dest $msg
     done < requester.tmp
-    rm requester.tmp
+    rm requester.tmp catLogin.tmp
 
 # Handler for catbot's !cat2oit responses. (Whois)
 elif has "$msg" "^cat uid \(or alias\): .* -> oit uid: " ; then
@@ -346,7 +366,7 @@ elif has "$msg" "^No matching OIT uid found for " ; then
     while read dest ; do
         say $dest $msg
     done < requester.tmp
-    rm requester.tmp
+    rm requester.tmp catLogin.tmp
 
 # Change title.
 

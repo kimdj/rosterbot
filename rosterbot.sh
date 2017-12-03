@@ -37,7 +37,7 @@ tail -f ${BOT_NICK}.io | openssl s_client -connect irc.cat.pdx.edu:6697 | while 
     # If log.out is empty, reset logging.  (cron job empties log.out after backup)
     LOG_FILE_1=/home/dkim/sandbox/rosterbot/log.stdout
     LOG_FILE_2=/home/dkim/sandbox/rosterbot/log.stderr
-    if [ ! -s ${LOG_FILE} ] ; then
+    if [ ! -s ${LOG_FILE_1} ] && [ ! -s ${LOG_FILE_2} ] ; then
         exec > >(tee -a ${LOG_FILE_1} )
         exec 2> >(tee -a ${LOG_FILE_2} >&2)
     fi
