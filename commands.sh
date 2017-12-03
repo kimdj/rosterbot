@@ -90,9 +90,10 @@ function whoisSubroutine {
         else
             say $chan "Try -> https://chronicle.cat.pdx.edu/projects/braindump/wiki/$subpath"
         fi
-        say $chan "${handle}'s real name is ${realname}"
         if [ $title ] ; then                                                                # case: title field entry exists
-            say $chan "$handle $title"
+            say $chan "${handle}'s real name is ${realname}, ${handle} ${title}"
+        else
+            say $chan "${handle}'s real name is ${realname}"
         fi
         say $chan "$handle belongs to the $batch, $year"
 
@@ -294,6 +295,11 @@ elif has "$msg" "^rosterbot: help$" ; then
 
 elif has "$msg" "^!alive$" ; then
     say $chan "running!"
+
+# Source.
+
+elif has "$msg" "^rosterbot: source$" ; then
+    say $chan "Try -> https://github.com/kimdj/rosterbot"
 
 # Whois.
 
