@@ -50,7 +50,10 @@ passwd.pyc
 labs
 *nixlist*
 printers
-log.out
+log.stdout
+log.stderr
+log/*
+log/
 
 # Other Ignored #
 #################
