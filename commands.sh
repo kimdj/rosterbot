@@ -311,7 +311,7 @@ elif has "${msg}" "^!alive$" ; then
 # Source.
 
 elif has "${msg}" "^rosterbot: source$" ; then
-    say ${chan} "Try -> https://github.com/kimdj/rosterbot"
+    say ${chan} "Try -> https://github.com/kimdj/rosterbot  |  /u/dkim/sandbox/rosterbot"
 
 # Whois.
 
