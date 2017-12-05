@@ -196,7 +196,7 @@ function whoisSubroutine {
 }
 
 function whoisSubroutine2 {
-    
+
     # Parse based on real name from catbot's !oit2cat response.
 
     dest=${1}
@@ -244,6 +244,8 @@ function whoisSubroutine2 {
         say ${dest} "User not found in the CAT Roster."
     fi
 }
+
+# Modify or clear a user's title.
 
 function titleSubroutine {
     found=0                                                 # Initialize found flag to 0.
@@ -302,15 +304,241 @@ function titleSubroutine {
     fi
 }
 
+# This subroutine checks to see if two files: 'whodat.handle.tmp' and 'whodat.clue.tmp'.
+# If they exist, rosterbot sends the clue to the irc channel.
+# Otherwise, a Handle is randomly selected from the whois/roster/*.roster (not including staff.roster).
+# Then, the Handle (as an anagram, or masked) along with the batch + year is sent to the
+# the irc channel.
+
+function whodatSubroutine {
+
+    if [ -f whodat.handle.tmp ] && [ -f whodat.clue.tmp ] ; then
+
+        # Send the clue.
+        say ${chan} "$(cat whodat.clue.tmp)"
+        echo "correctAnswer -> $(cat whodat.handle.tmp)"
+
+    else
+
+        # Randomly select a Handle.
+        handle=$( cat $(pwd)/whois/roster/*.roster | egrep 'handle: [^ ]' | sed -e 's|handle: ||' | sort -R | head -n 1 )
+
+        # Save the Handle to a file.
+        echo ${handle} > whodat.handle.tmp
+
+        # Get the info to be used as the clue.
+        rosterList=( $(pwd)/whois/roster/*.roster )
+        for file in "${rosterList[@]}" ; do                     # Loop through each roster.
+
+            # Skip the staff roster.  (i.e. only titles within batch rosters can be edited)
+            if [ $(echo ${file} | grep staff) ] ; then
+                continue
+            fi
+
+            # Look for the Handle in the file.
+            # Otherwise, continue on the next file.
+            # Note: grep matches based on anchors ^ and $.
+            # The purpose is to mitigate unintentional substring matches.
+            handleLine=$(cat ${file} | grep -in "^handle: ${handle}$")                              # 129:handle: handle
+            if [ ${handleLine} ] ; then
+                handleLineNumber=$(echo ${handleLine} | sed -e 's/\([0-9]*\):.*/\1/')               # 129
+            else
+                continue
+            fi
+
+            # # Get the info.
+            # titleLineNumber="$((${handleLineNumber} + 2))"
+            # oldTitle=$(sed -n ${titleLineNumber}p ${file} | grep -Po '(?<=(title: )).*')            # title
+
+            # Get the Batch and Year.
+            year=$(sed -n 1p ${file} | grep -Po '(?<=(year: )).*')                                  # 2017-2018
+            batch=$(sed -n 2p ${file} | grep -Po '(?<=(batch: )).*')                                # Yet-To-Be-Named (YTBN)
+
+            # Save the clue in a file.
+            rand=$(shuf -i 1-2 -n 1) # Get random number between 1-2.
+            case "${rand}" in
+
+            1)  # Scramble the handle.  (e.g. _sharp  -> ph_ras)
+                scramble=$(echo ${handle} | sed 's/./&\n/g' | shuf | tr -d "\n")
+                echo ".oO ( ${scramble} was a ${batch}, ${year} )" > whodat.clue.tmp                # Save the clue in a file.
+                ;;
+
+            2)  # Randomly mask characters.  (e.g. _sharp  ->  _&ha*p)
+                masked=${handle}
+                while read -r line; do
+                    index=${line}
+                    masked=$(echo "${masked}" | sed s/./*/${index})
+                done <<< "$( shuf -i 1-${#handle} -n $(( ${#handle} / 2)) )"
+
+                echo ".oO ( ${masked} was a ${batch}, ${year} )" > whodat.clue.tmp                  # Save the clue in a file.
+                ;;
+
+            *) echo "Error"
+               ;;
+
+            esac
+
+            # Send the clue.
+            say ${chan} "$(cat whodat.clue.tmp)"
+            echo "correctAnswer -> $(cat whodat.handle.tmp)"
+
+            # Break out of the for loop.
+            break
+        done
+    fi
+}
+
+# This subroutine looks up a Handle's whodat points.
+
+function whodatSubroutine2 {
+
+    handle=${1}                                             # Assign the first argument to $handle.
+    found=0                                                 # Initialize found flag to 0.
+
+    rosterList=( $(pwd)/whois/roster/*.roster )
+    for file in "${rosterList[@]}" ; do                     # Loop through each roster.
+        
+        # Skip the staff roster.  (i.e. only titles within batch rosters can be edited)
+        if [ $(echo ${file} | grep staff) ] ; then
+            continue
+        fi
+
+        # Look for the Handle in the file.
+        # Otherwise, continue on the next file.
+        # Note: grep matches based on anchors ^ and $.
+        # The purpose is to mitigate unintentional substring matches.
+        handleLine=$(cat ${file} | grep -in "^handle: ${handle}$")                              # 129:handle: handle
+        if [ ${handleLine} ] ; then
+            handleLineNumber=$(echo ${handleLine} | sed -e 's/\([0-9]*\):.*/\1/')               # 129
+        else
+            continue
+        fi
+
+        # Get the user's points.
+        whodatPointsLineNumber="$((${handleLineNumber} + 4))"                                   # 133
+        points=$(sed -n ${whodatPointsLineNumber}p ${file} | grep -Po '(?<=(whodatPoints: )).*')            # 0
+
+        say ${chan} "${handle} has ${points} points."                                           # Send the message.
+
+        found=$((${found} + 1))                                                                 # Set found flag to 1.
+
+        break                                                                                   # Once found, break out of the for loop.
+    done
+
+    if [ "${found}" -eq "0" ] ; then                                                            # If a match was not found..
+        say ${chan} "who dat?"
+    fi
+}
+
+# This subroutine checks to see if a user's answer is correct.
+
+function isdatSubroutine {
+
+    handle=${nick}
+
+    if [ -f whodat.handle.tmp ] ; then
+        userAnswer=${1}
+        correctAnswer="$(cat whodat.handle.tmp)"
+
+        # Check if the answer is correct.
+        if [ "${userAnswer^^}" == "${correctAnswer^^}" ] ; then  # ${str,,} converts str to lowercase, ${str^^} converts str to uppercase
+            # say ${chan} "Correct!"
+            replySubroutine "correct"
+
+            # Increment whodatPoints.
+            rosterList=( $(pwd)/whois/roster/*.roster )
+            for file in "${rosterList[@]}" ; do                     # Loop through each roster.
+                
+                # Skip the staff roster.  (i.e. only titles within batch rosters can be edited)
+                if [ $(echo ${file} | grep staff) ] ; then
+                    continue
+                fi
+
+                # Look for the Handle in the file.
+                # Otherwise, continue on the next file.
+                # Note: grep matches based on anchors ^ and $.
+                # The purpose is to mitigate unintentional substring matches.
+                handleLine=$(cat ${file} | grep -in "^handle: ${handle}$")                              # 129:handle: handle
+                if [ ${handleLine} ] ; then
+                    handleLineNumber=$(echo ${handleLine} | sed -e 's/\([0-9]*\):.*/\1/')               # 129
+                else
+                    continue
+                fi
+
+                # Increment the user's points.
+                whodatPointsLineNumber="$((${handleLineNumber} + 4))"
+                points=$(sed -n ${whodatPointsLineNumber}p ${file} | grep -Po '(?<=(whodatPoints: )).*')            # 0
+                points=$((points + 1))                                                                              # 1
+
+                sed -i "${whodatPointsLineNumber}s|.*|whodatPoints\: ${points}|g" ${file}                           # whodatPoints: 1
+
+                # Break out of the for loop.
+                break
+            done
+
+            rm whodat.handle.tmp                # Remove the tmp file.
+        else
+            # say ${chan} "Wrong..."
+            replySubroutine "wrong"
+        fi
+    else
+        say ${chan} 'Try !whodat'
+    fi
+}
+
+# This subroutine tells the user whether their !isdat answer was right or wrong.
+
+function replySubroutine {
+    if [ "${1}" == "correct" ] ; then
+        case "$(shuf -i 0-5 -n 1)" in           # Generate a random number between 0-5, then execute the following case.
+            0)  say ${chan} "Correct!"
+                ;;
+            1)  say ${chan} "Bingo!"
+                ;;
+            2)  say ${chan} "Right!"
+                ;;
+            3)  say ${chan} "You got a whodat point!"
+                ;;
+            4)  say ${chan} "How'd you know?!"
+                ;;
+            5)  say ${chan} "You got it!"
+                ;;
+            *)  echo "Error"
+                ;;
+        esac
+    elif [ "${1}" == "wrong" ] ; then
+        case "$(shuf -i 0-5 -n 1)" in           # Generate a random number between 0-5, then execute the following case.
+            0)  say ${chan} "Wrong..."
+                ;;
+            1)  say ${chan} "Try again..."
+                ;;
+            2)  say ${chan} "Erroneous..."
+                ;;
+            3)  say ${chan} "I admire your effort, really..."
+                ;;
+            4)  say ${chan} "You'll get it next time..."
+                ;;
+            5)  say ${chan} "Nice try ~:D"
+                ;;
+            *)  echo "Error"
+                ;;
+        esac
+    fi
+}
+
+# This subroutine displays the documentation for rosterbot's functionalities.
+
 function helpSubroutine {
 
     # Randomly select a Handle and a Real Name as an example for usage.
     handle=$( cat $(pwd)/whois/roster/*.roster | egrep 'handle: [^ ]' | sed -e 's|handle: ||' | sort -R | head -n 1 )
     handle2=$( cat $(pwd)/whois/roster/*.roster | egrep 'handle: [^ ]' | sed -e 's|handle: ||' | sort -R | head -n 1 )
+    handle3=$( cat $(pwd)/whois/roster/*.roster | egrep 'handle: [^ ]' | sed -e 's|handle: ||' | sort -R | head -n 1 )
+    handle4=$( cat $(pwd)/whois/roster/*.roster | egrep 'handle: [^ ]' | sed -e 's|handle: ||' | sort -R | head -n 1 )
     rndRealname=$( cat $(pwd)/whois/roster/*.roster | egrep 'realname: [^ ]' | sed -e 's|realname: ||' | sort -R | head -n 1 )
 
     if [ ${1} == "whois" ] ; then
-        say ${chan} "Usage: !whois ${handle} | !whois ${rndRealname} | !whois CATusername | !whois OITusername | !title ${handle2} is a DROOG-1, ..."
+        say ${chan} "Usage: !whois ${handle} | !whois ${rndRealname} | !whois CATusername | !whois OITusername | !title ${handle2} is a DROOG-1 | !whodat | !whodat ${handle3} | !isdat ${handle4}"
     elif [ ${1} == "title" ] ; then
         say ${chan} "Usage: !title ${handle} is a CLAW-1, ... | !title ${handle2}"
     fi
@@ -411,6 +639,22 @@ elif has "${msg}" "^!sendcmd " && [[ ${nick} == "_sharp" ]] ; then
     dest=$(echo ${buffer} | sed -e "s| .*||")
     message=$(echo ${buffer} | cut -d " " -f2-)
     say ${dest} "${message}"
+
+# Whodat game.
+
+elif has "${msg}" "^!whodat$" ; then
+    whodatSubroutine
+
+elif has "${msg}" "^!whodat " ; then
+    handle=$(echo ${msg} | sed -r 's/^.{8}//')
+    whodatSubroutine2 ${handle}
+
+elif has "${msg}" "^!isdat$" ; then
+    say ${chan} "isdat who? !whodat"
+
+elif has "${msg}" "^!isdat " ; then
+    answer=$(echo ${msg} | sed -r 's/^.{7}//')
+    isdatSubroutine ${answer}
 
 fi
 
