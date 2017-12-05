@@ -35,6 +35,12 @@ function send {
 
 function join_by { local IFS="${1}" ; shift ; echo "$*" ; }
 
+function removeTmpSubroutine {
+    if [ -f ./requester.tmp ] ; then rm requester.tmp ; fi
+    if [ -f ./oitLogin.tmp ] ; then rm oitLogin.tmp ; fi
+    if [ -f ./catLogin.tmp ] ; then rm catLogin.tmp ; fi
+}
+
 function whoisSubroutine {
 
     echo "${chan}" > requester.tmp                  # Store ${chan} (requester's nick) in a file.
@@ -335,13 +341,13 @@ elif has "${msg}" "^name: " ; then
             whoisSubroutine2 ${dest} ${oitLogin}
         done < oitLogin.tmp
     done < requester.tmp
-    rm requester.tmp oitLogin.tmp catLogin.tmp
+    removeTmpSubroutine
 
 elif has "${msg}" "^No matching MCECS uid found for " ; then
     while read dest ; do
         say ${dest} ${msg}
     done < requester.tmp
-    rm requester.tmp catLogin.tmp
+    removeTmpSubroutine
 
 # Handler for catbot's !cat2oit responses. (Whois)
 elif has "${msg}" "^cat uid \(or alias\): .* -> oit uid: " ; then
@@ -352,13 +358,13 @@ elif has "${msg}" "^cat uid \(or alias\): .* -> oit uid: " ; then
             say ${dest} "oit username: ${oitLogin2}, cat username: ${login}"
         done < catLogin.tmp
     done < requester.tmp
-    rm requester.tmp catLogin.tmp
+    removeTmpSubroutine
 
 elif has "${msg}" "^No matching OIT uid found for " ; then
     while read dest ; do
         say ${dest} ${msg}
     done < requester.tmp
-    rm requester.tmp catLogin.tmp
+    removeTmpSubroutine
 
 # Change title.
 
