@@ -47,10 +47,12 @@ function whoisSubroutine {
     found=0                                         # Initialize found flag to 0.
     pathToStaffRoster="$(pwd)/whois/roster/staff.roster"
     rosterList=( $(pwd)/whois/roster/*.roster )
+    arg=$(echo ${1} | sed 's|[^a-zA-Z0-9_ ]||g')                           # Filter out malicious or meaningless characters.
 
     # Parse based on CAT handle.    ----------------------------------------------------------------------------------
 
-    handle=$(echo ${1} | sed 's/ .*//')             # Capture the first word of the argument (i.e. first word -> first).
+    # handle=$(echo ${arg} | sed 's/ .*//')             # Capture the first word of the argument (i.e. first word -> first).
+    handle=$(echo ${arg})                             # Allow whitespace within Handle.
 
     # say _sharp "Looking for Handle..."            # Debugging
     for file in "${rosterList[@]}" ; do             # Loop through each roster.
@@ -71,7 +73,7 @@ function whoisSubroutine {
 
         # Get the cat username and oit username.
         loginLineNumber="$((${handleLineNumber} - 2))"                                          # 127
-        login=$(sed -n ${loginLineNumber}p ${file} | grep -Po '(?<=(login: )).*')               # login refers to the user's cat username
+        login=$(sed -n ${loginLineNumber}p ${file} | grep -Po '(?<=(login: )).*')               # $login refers to the user's cat username
         echo "${login}" > catLogin.tmp                                                          # Store cat login in a file.
         privmsg=$(echo '!cat2oit' ${login})                                                     # Send to catbot -> !cat2oit username
         say "catbot" ${privmsg}                                                                 # Refer to "Handler for catbot's !cat2oit responses" section below.
@@ -94,13 +96,13 @@ function whoisSubroutine {
         batch=$(sed -n 2p ${file} | grep -Po '(?<=(batch: )).*')                                # Yet-To-Be-Named (YTBN)
 
         # Send results back to the client.
-        if [ ${file} == "${pathToStaffRoster}" ] ; then                                         # case: match was found in staff.roster
+        if [ ${file} == "${pathToStaffRoster}" ] ; then                                         # Case: match was found in staff.roster
             say ${chan} "Try -> https://chronicle.cat.pdx.edu/projects/cat/wiki/${subpath}"
         else
             say ${chan} "Try -> https://chronicle.cat.pdx.edu/projects/braindump/wiki/${subpath}"
         fi
-        if [ ${title} ] ; then                                                                  # case: title field entry exists
-            say ${chan} "${handle}'s real name is ${realname}, ${handle} ${title}"
+        if [ ${title} ] ; then                                                                  # Case: title field entry exists
+            say ${chan} "${handle}'s real name is ${realname} | ${handle} ${title}"
         else
             say ${chan} "${handle}'s real name is ${realname}"
         fi
@@ -109,11 +111,12 @@ function whoisSubroutine {
         found=$((${found} + 1))                             # Set found flag to 1.
     done
 
-    # Parse based on login name.    ----------------------------------------------------------------------------------
+    # Parse based on cat login name.    ----------------------------------------------------------------------------------
 
     if [ "${found}" -eq "0" ] ; then                        # If a Handle match was found, skip this if block.
-        login=$(echo ${1} | sed 's/ .*//')                  # Just capture the first word.
+        login=$(echo ${arg} | sed 's/ .*//')                  # Just capture the first word.
 
+        arr=()                                                      # Declare an empty array.  (list of entries found)
         for file in "${rosterList[@]}" ; do                 # Loop through each roster.
 
             # Look for the Login in the file.
@@ -130,16 +133,26 @@ function whoisSubroutine {
             # Get the Handle.
             handleLineNumber="$((${loginLineNumber} + 2))"                                        # 128
             handle=$(sed -n ${handleLineNumber}p ${file} | grep -Po '(?<=(handle: )).*')          # username
-            say ${chan} "${handle}"
+            handle=$( echo ${handle} | sed 's| |%20|g')                                           # Temporarily convert spaces to URL-encoded char code within Handles
 
-            found=$((${found} + 1))             # Set found flag to 1.
+            # Only append to arr if Handle exists for the user.
+            if [ ${handle} ] ; then
+                arr+=" ${handle}"
+                found=$((${found} + 1))             # Set found flag to 1.
+            fi
         done
+
+        uniqArr=$(echo "${arr[@]}" | tr ' ' '\n' | sort -u | tr '\n' ' ' | sed 's| $||')                    # Remove duplicate Handles in arr (get unique array values only)
+        sep=' ~ '                                                                                           # Define the separator between Handles
+        payload=$( echo ${uniqArr[@]} | sed "s/ /${sep}/g" | sed "s/^${sep}//" | sed 's/%20/ /g')           # e.g. Superman ~ Iron Man ~ Thor
+
+        say ${chan} "${payload}"
     fi
 
     # Parse based on real name.    ----------------------------------------------------------------------------------
 
     if [ "${found}" -eq "0" ] ; then                                # If a Handle match or Login match was found, skip this if block.
-        realname=$(echo ${1} | sed 's/\(.* .*\) .*//')              # Just capture the first word.
+        realname=$(echo ${arg} | sed 's/\(.* .*\) .*//')              # Just capture the first word.
 
         arr=()                                                      # Declare an empty array.  (list of entries found)
         for file in "${rosterList[@]}" ; do                         # Loop through each roster.
@@ -156,9 +169,6 @@ function whoisSubroutine {
                     # Get the Handle.
                     handleLineNumber="$((${realnameLineNumber} - 1))"                                       # 100
                     handle=$(sed -n ${handleLineNumber}p ${file} | grep -Po '(?<=(handle: )).*')            # handle
-
-                    # Get the Realname.
-                    _realname=$(sed -n ${realnameLineNumber}p ${file} | grep -Po '(?<=(realname: )).*')     # realname
                     handle=$( echo ${handle} | sed 's| |%20|g')                                             # Temporarily convert spaces to URL-encoded char code within Handles
 
                     # Only append to arr if Handle exists for the user.
@@ -179,7 +189,7 @@ function whoisSubroutine {
         # If a match was not found, ask catbot.
         # Refer to "Handler for catbot's responses" section below.
         if [ "${found}" -eq "0" ] ; then
-            privmsg=$(echo '!oit2cat' ${1})                                     # Send to catbot -> !oit2cat username
+            privmsg=$(echo '!oit2cat' ${arg})                                     # Send to catbot -> !oit2cat username
             say "catbot" ${privmsg}
         fi
     fi
@@ -194,6 +204,7 @@ function whoisSubroutine2 {
     found=0    # Initialize found flag to 0.
     rosterList=( $(pwd)/whois/roster/*.roster )
 
+    arr=()
     for file in "${rosterList[@]}" ; do                                         # Loop through each roster.
 
         # Find a line containing the real name.
@@ -210,12 +221,23 @@ function whoisSubroutine2 {
         # Get the Handle.
         handleLineNumber="$((${realnameLineNumber} - 1))"                                     # 129
         handle=$(sed -n ${handleLineNumber}p ${file} | grep -Po '(?<=(handle: )).*')          # handle
+        handle=$( echo ${handle} | sed 's| |%20|g')                                           # Temporarily convert spaces to URL-encoded char code within Handles
 
-        # Send a response to the client.
-        say ${dest} "${handle}"
+        # # Send a response to the client.
+        # say ${dest} "${handle}"
 
-        found=$((${found} + 1))             # Set found flag to 1.
+        # Only append to arr if Handle exists for the user.
+        if [ ${handle} ] ; then
+            arr+=" ${handle}"
+            found=$((${found} + 1))             # Set found flag to 1.
+        fi
     done
+
+    uniqArr=$(echo "${arr[@]}" | tr ' ' '\n' | sort -u | tr '\n' ' ' | sed 's| $||')                    # Remove duplicate Handles in arr (get unique array values only)
+    sep=' ~ '                                                                                           # Define the separator between Handles
+    payload=$( echo ${uniqArr[@]} | sed "s/ /${sep}/g" | sed "s/^${sep}//" | sed 's/%20/ /g')           # e.g. Superman ~ Iron Man ~ Thor
+
+    say ${dest} "${payload}"
 
     # If a match was not found..
     if [ "${found}" -eq "0" ] ; then
@@ -225,9 +247,10 @@ function whoisSubroutine2 {
 
 function titleSubroutine {
     found=0                                                 # Initialize found flag to 0.
+    arg=${1}
 
-    handle=$(echo ${1} | sed 's/ .*//')                     # Just capture the first word.
-    newTitle=$(echo ${1} | cut -d " " -f2-)                 # Capture the remaining words.
+    handle=$(echo ${arg} | sed 's/ .*//')                     # Just capture the first word.
+    newTitle=$(echo ${arg} | cut -d " " -f2-)                 # Capture the remaining words.
     rosterList=( $(pwd)/whois/roster/*.roster )
 
     if [ ! ${handle} ] ; then
