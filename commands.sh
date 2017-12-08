@@ -1,7 +1,8 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # rosterbot ~ Subroutines/Commands
 # Copyright (c) 2017 David Kim
 # This program is licensed under the "MIT License".
+# Date of inception: 11/21/17
 
 read nick chan msg      # Assign the 3 arguments to nick, chan and msg.
 
@@ -48,7 +49,7 @@ function whoisSubroutine {
     found=0                                         # Initialize found flag to 0 (incremented when a match is found).
     pathToStaffRoster="$(pwd)/whois/roster/staff.roster"
     rosterList=( $(pwd)/whois/roster/*.roster )
-    arg=$(echo "${1}" | sed 's|[^-a-zA-Z0-9_ ]||g')                           # Whitelist user input.
+    arg=$(echo "${1}" | sed 's|[^-a-zA-Z0-9_! ]||g')                           # Whitelist user input.
 
     # Parse based on the CAT handle.    ----------------------------------------------------------------------------------
 
@@ -78,7 +79,7 @@ function whoisSubroutine {
                                                                                                 # "Handler for catbot's !cat2oit responses. (Whois)" section below.
 
         # Get the Subpath to the user's CAT chronicle page.
-        # Note: subpath == cat username in most cases (2010 and onward).
+        # Note: subpath = cat username in most cases (2010 and onward).
         subpathLineNumber="$((${handleLineNumber} - 1))"                                       # 128
         subpath=$(sed -n ${subpathLineNumber}p ${file} | grep -Po '(?<=(subpath: )).*')        # username or subpath
 
@@ -101,7 +102,7 @@ function whoisSubroutine {
 
         # Send results back to the user/channel.
         # Note: if a user pm's rosterbot, ${chan} will be set to the user's nick
-        if [ ${file} == "${pathToStaffRoster}" ] ; then                                         # Case: match was found in staff.roster
+        if [ ${file} = "${pathToStaffRoster}" ] ; then                                         # Case: match was found in staff.roster
             say ${chan} "Try -> https://chronicle.cat.pdx.edu/projects/cat/wiki/${subpath}"
         else
             say ${chan} "Try -> https://chronicle.cat.pdx.edu/projects/braindump/wiki/${subpath}"
@@ -351,7 +352,7 @@ function titleSubroutine {
         titleLineNumber="$((${handleLineNumber} + 2))"
         oldTitle=$(sed -n ${titleLineNumber}p ${file} | grep -Po '(?<=(title: )).*')            # title
 
-        if [[ ${newTitle} == ${handle} ]] ; then                                                # clear title
+        if [[ ${newTitle} = ${handle} ]] ; then                                                # clear title
             newTitle=''
         fi
 
@@ -434,15 +435,15 @@ function whodatSubroutine {
 
             # Scramble the handle.  (e.g. _sharp  -> ph_ras)
             1)  scramble=$(echo ${handle} | sed 's/./&\n/g' | shuf | tr -d "\n")
-                while [[ "${scramble}" == "${handle}" ]] ; do                                         # Make sure the handle is scrambled.
+                while [[ "${scramble}" = "${handle}" ]] ; do                                                               # Make sure the handle is scrambled.
                     scramble=$(echo ${handle} | sed 's/./&\n/g' | shuf | tr -d "\n")
                 done
 
-                # echo ".oO ( ${scramble} was a ${batch}, ${year} )" > whodat.clue.tmp                # Save the clue in a file.
-                batch1=$(echo ${batch} | sed 's/\(.* \).*/\1/')          # Delightfully-Resourceful-Advisers-Going-On-No-Sleep
-                batch2=$(echo ${batch} | sed 's/.* \(.*\)/\1/' | tr 'aeiostl' '43105+|' | tr 'AEIOSTL' '43105+|')          # (DR4G0N5)
+                # echo ".oO ( ${scramble} was a ${batch}, ${year} )" > whodat.clue.tmp                                      # Save the clue in a file.
+                batch1=$(echo ${batch} | sed 's/\(.* \).*/\1/')                                                             # Delightfully-Resourceful-Advisers-Going-On-No-Sleep
+                batch2=$(echo ${batch} | sed 's/.* \(.*\)/\1/' | tr 'aeiostl' '43105+|' | tr 'AEIOSTL' '43105+|')           # (DR4G0N5)
                 batch=$(echo ${batch1}${batch2})
-                echo ".oO ( ${scramble} was a ${batch}, ${year} )" > whodat.clue.tmp                # Save the clue in a file.
+                echo ".oO ( ${scramble} was a ${batch}, ${year} )" > whodat.clue.tmp                                        # Save the clue in a file.
 
                 ;;
 
@@ -453,11 +454,11 @@ function whodatSubroutine {
                     masked=$(echo "${masked}" | sed s/./*/${index})
                 done <<< "$( shuf -i 1-${#handle} -n $(( ${#handle} / 2)) )"
 
-                # echo ".oO ( ${masked} was a ${batch}, ${year} )" > whodat.clue.tmp                # Save the clue in a file.
-                batch1=$(echo ${batch} | sed 's/\(.* \).*/\1/')          # Delightfully-Resourceful-Advisers-Going-On-No-Sleep
-                batch2=$(echo ${batch} | sed 's/.* \(.*\)/\1/' | tr 'aeiostl' '43105+|' | tr 'AEIOSTL' '43105+|')          # (DR4G0N5)
+                # echo ".oO ( ${masked} was a ${batch}, ${year} )" > whodat.clue.tmp                                        # Save the clue in a file.
+                batch1=$(echo ${batch} | sed 's/\(.* \).*/\1/')                                                             # Delightfully-Resourceful-Advisers-Going-On-No-Sleep
+                batch2=$(echo ${batch} | sed 's/.* \(.*\)/\1/' | tr 'aeiostl' '43105+|' | tr 'AEIOSTL' '43105+|')           # (DR4G0N5)
                 batch=$(echo ${batch1}${batch2})
-                echo ".oO ( ${masked} was a ${batch}, ${year} )" > whodat.clue.tmp                # Save the clue in a file.
+                echo ".oO ( ${masked} was a ${batch}, ${year} )" > whodat.clue.tmp                                          # Save the clue in a file.
                 ;;
 
             *) echo "Error"
@@ -529,7 +530,7 @@ function isdatSubroutine {
         correctAnswer="$(cat whodat.handle.tmp)"
 
         # Check if the answer is correct.
-        if [ "${userAnswer^^}" == "${correctAnswer^^}" ] ; then  # ${str,,} converts str to lowercase, ${str^^} converts str to uppercase
+        if [ "${userAnswer^^}" = "${correctAnswer^^}" ] ; then  # ${str,,} converts str to lowercase, ${str^^} converts str to uppercase
 
             # Increment whodatPoints.
             rosterList=( $(pwd)/whois/roster/*.roster )
@@ -619,7 +620,7 @@ function replySubroutine {
     correctAnswer=${4}
     # correctAnswer=$(echo ${4} | tr 'aeiostl' '43105+|')  # Replace certain chars to avoid incessant pinging/highlighting.
 
-    if [ "${1}" == "correct" ] ; then
+    if [ "${1}" = "correct" ] ; then
         case "$(shuf -i 0-5 -n 1)" in           # Generate a random number between 0-5, then execute the following case.
             0)  say ${chan} "Correct! ${handle} now has ${points} points."
                 ;;
@@ -636,7 +637,7 @@ function replySubroutine {
             *)  echo "Error"
                 ;;
         esac
-    elif [ "${1}" == "wrong" ] ; then
+    elif [ "${1}" = "wrong" ] ; then
         case "$(shuf -i 0-5 -n 1)" in           # Generate a random number between 0-5, then execute the following case.
             0)  say ${chan} "Wrong..."
                 ;;
@@ -653,7 +654,7 @@ function replySubroutine {
             *)  echo "Error"
                 ;;
         esac
-    elif [ "${1}" == "give up" ] ; then
+    elif [ "${1}" = "give up" ] ; then
         case "$(shuf -i 0-5 -n 1)" in           # Generate a random number between 0-5, then execute the following case.
             0)  say ${chan} "Everyone has their limits, I suppose. The answer is ${correctAnswer}. ${handle} now has ${points} points"
                 ;;
@@ -678,7 +679,7 @@ function replySubroutine {
 
 function whodaSubroutine {
 
-    if [ "${1}" == "highest" ] ; then                           # Get the user with the highest whodat points.
+    if [ "${1}" = "highest" ] ; then                           # Get the user with the highest whodat points.
 
         # Find the user with the highest whodatPoints.
         highestPoints=0
@@ -749,9 +750,9 @@ function helpSubroutine {
     rndHandle4=$( cat $(pwd)/whois/roster/*.roster | egrep 'handle: [^ ]' | sed -e 's|handle: ||' | sort -R | head -n 1 )
     rndRealname=$( cat $(pwd)/whois/roster/*.roster | egrep 'realname: [^ ]' | sed -e 's|realname: ||' | sort -R | head -n 1 )
 
-    if [ ${1} == "whois" ] ; then
-        say ${chan} "Usage: !whois ${rndHandle1} -OR- rosterbot: whois ${rndHandle} | !whois ${rndRealname} | !whois CATusername | !whois OITusername | !whois =~ _[a-s]{4}.* | !title ${rndHandle2} is a DROOG-1 | !whodat | !whodat ${rndHandle3} | !isdat ${rndHandle4} | !isdat give up | !whodahi | !whodalo"
-    elif [ ${1} == "title" ] ; then
+    if [ ${1} = "whois" ] ; then
+        say ${chan} "Usage: !whois ${rndHandle1} -OR- rosterbot: whois ${rndHandle} | !whois ${rndRealname} | !whois CATusername | !whois OITusername | !whois =~ _[a-s]{4}.* | !title ${rndHandle2} is a DROOG-1 | !whodat | !whodat ${rndHandle3} | !isdat ${rndHandle4} | !isdat give up | !whodahi | !whodalo | rosterbot: source"
+    elif [ ${1} = "title" ] ; then
         say ${chan} "Usage: !title ${rndHandle} is a CLAW-1, ... | !title ${rndHandle2}"
     fi
 
@@ -840,13 +841,13 @@ elif has "${msg}" "^!title " || has "${msg}" "^rosterbot: title " ; then
 
 # Have rosterbot send an IRC command to the IRC server.
 
-elif has "${msg}" "^!injectcmd " || has "${msg}" "^rosterbot: injectcmd " && [[ ${nick} == "_sharp" ]] ; then
+elif has "${msg}" "^!injectcmd " || has "${msg}" "^rosterbot: injectcmd " && [[ ${nick} = "_sharp" ]] ; then
     cmd=$(echo ${msg} | sed -r 's/^!injectcmd //' | sed -r 's/^rosterbot: injectcmd //')
     send "${cmd}"
 
 # Have rosterbot send a message.
 
-elif has "${msg}" "^!sendcmd " || has "${msg}" "^rosterbot: sendcmd " && [[ ${nick} == "_sharp" ]] ; then
+elif has "${msg}" "^!sendcmd " || has "${msg}" "^rosterbot: sendcmd " && [[ ${nick} = "_sharp" ]] ; then
     buffer=$(echo ${msg} | sed -re 's/^!sendcmd //' | sed -re 's/^rosterbot: sendcmd //')
     dest=$(echo ${buffer} | sed -e "s| .*||")
     message=$(echo ${buffer} | cut -d " " -f2-)
