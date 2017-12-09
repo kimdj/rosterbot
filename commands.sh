@@ -393,10 +393,10 @@ function whodatSubroutine {
         # # Randomly select a Handle from the entire CAT roster.
         # handle=$( cat $(pwd)/whois/roster/*.roster | egrep 'handle: [^ ]' | sed -e 's|handle: ||' | sort -R | head -n 1 )
 
-        # Randomly select a Handle from 2010-2017 CAT rosters.
-        handle=$( cat $(pwd)/whois/roster/2017*.roster $(pwd)/whois/roster/2016*.roster | egrep 'handle: [^ ]' | sed -e 's|handle: ||' | sort -R | head -n 1 )
+        # Randomly select a Handle from 2014-2017 CAT rosters.
+        handle=$( cat $(pwd)/whois/roster/2017*.roster $(pwd)/whois/roster/2016*.roster $(pwd)/whois/roster/2015*.roster $(pwd)/whois/roster/2014*.roster | egrep 'handle: [^ ]' | sed -e 's|handle: ||' | sort -R | head -n 1 )
         while [ ! $handle ] ; do
-            handle=$( cat $(pwd)/whois/roster/2017*.roster $(pwd)/whois/roster/2016*.roster | egrep 'handle: [^ ]' | sed -e 's|handle: ||' | sort -R | head -n 1 )
+            handle=$( cat $(pwd)/whois/roster/2017*.roster $(pwd)/whois/roster/2016*.roster $(pwd)/whois/roster/2015*.roster $(pwd)/whois/roster/2014*.roster | egrep 'handle: [^ ]' | sed -e 's|handle: ||' | sort -R | head -n 1 )
         done
 
         # Save the Handle to a file.
