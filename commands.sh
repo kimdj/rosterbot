@@ -109,7 +109,7 @@ function whoisSubroutine {
         fi
 
         if [ ${title} ] ; then                                                                  # Case: user has a title
-            say ${chan} "${handle}'s real name is ${realname} | ${handle} ${title}"
+            say ${chan} "${handle}'s real name is ${realname}, ${handle} ${title}"
         else
             say ${chan} "${handle}'s real name is ${realname}"
         fi
@@ -154,7 +154,7 @@ function whoisSubroutine {
         uniqArr=$(echo "${arr[@]}" | tr ' ' '\n' | sort -u | tr '\n' ' ' | sed 's| $||')                    # Remove duplicate Handles in arr (get unique array values only)
         sep=' ~ '                                                                                           # Define the separator between Handles
         payload=$( echo ${uniqArr[@]} | sed "s/ /${sep}/g" | sed "s/^${sep}//" | sed 's/%20/ /g')           # e.g. Superman ~ Iron Man ~ Thor
-# say _sharp "in cat login"
+
         say ${chan} "${payload}"
     fi
 
@@ -195,7 +195,7 @@ function whoisSubroutine {
         uniqArr=$(echo "${arr[@]}" | tr ' ' '\n' | sort -u | tr '\n' ' ' | sed 's| $||')                    # Remove duplicate Handles in arr (get unique array values only)
         sep=' ~ '                                                                                           # Define the separator between Handles
         payload=$( echo ${uniqArr[@]} | sed "s/ /${sep}/g" | sed "s/^${sep}//" | sed 's/%20/ /g')           # e.g. Superman ~ Iron Man ~ Thor
-# say _sharp "in real name"
+
         say ${chan} "${payload}"
 
         # Finally, if a match was not found, see if catbot's !oit2cat yields any results.
@@ -684,7 +684,6 @@ function whodatSubroutine2 {
 }
 
 # This subroutine checks to see if a user's answer is correct.
-# Also allows for the user to give up.
 
 function isdatSubroutine {
 
@@ -695,7 +694,7 @@ function isdatSubroutine {
         userAnswer=${1}
         correctAnswer="$(cat whodat.handle.tmp)"
 
-        # Check if the answer is correct.
+        # Check if the answer is correct.  If correct, give the user +3 points.
         if [ "${userAnswer^^}" = "${correctAnswer^^}" ] ; then  # ${str,,} converts str to lowercase, ${str^^} converts str to uppercase
 
             # Increment whodatPoints.
@@ -720,7 +719,7 @@ function isdatSubroutine {
                 # Increment the user's points.
                 whodatPointsLineNumber="$((${handleLineNumber} + 4))"
                 points=$(sed -n ${whodatPointsLineNumber}p ${file} | grep -Po '(?<=(whodatPoints: )).*')            # 0
-                points=$((points + 1))                                                                              # 1
+                points=$((points + 3))                                                                              # 1
 
                 sed -i "${whodatPointsLineNumber}s|.*|whodatPoints\: ${points}|g" ${file}                           # whodatPoints: 1
 
@@ -731,11 +730,9 @@ function isdatSubroutine {
             done
 
             rm whodat.handle.tmp whodat.clue.tmp                # Remove the tmp files.
-
-        # Case: the user gives up.  Receives the answer for a negative point.
-        elif [[ "${userAnswer}" =~ "give up" ]] ; then
-
-            # Decrement whodatPoints.
+        else
+          
+            # Decrement user's whodatPoints.
             rosterList=( $(pwd)/whois/roster/*.roster )
             for file in "${rosterList[@]}" ; do                     # Loop through each roster.
                 
@@ -757,24 +754,68 @@ function isdatSubroutine {
                 # Decrement the user's points.
                 whodatPointsLineNumber="$((${handleLineNumber} + 4))"
                 points=$(sed -n ${whodatPointsLineNumber}p ${file} | grep -Po '(?<=(whodatPoints: )).*')            # 0
-                points=$((points - 1))                                                                              # -1
+                points=$((points - 1))                                                                              # 1
 
-                sed -i "${whodatPointsLineNumber}s|.*|whodatPoints\: ${points}|g" ${file}                           # whodatPoints: -1
+                sed -i "${whodatPointsLineNumber}s|.*|whodatPoints\: ${points}|g" ${file}                           # whodatPoints: 1
 
-                replySubroutine "give up" "${handle}" "${points}" "${correctAnswer}"
+                replySubroutine "wrong" "${handle}" "${points}"
 
                 # Break out of the for loop.
                 break
             done
-
-            rm whodat.handle.tmp whodat.clue.tmp                # Remove the tmp files.
-        else
-            replySubroutine "wrong"
         fi
     else
         say ${chan} 'Try !whodat'
     fi
     shopt -u nocasematch                                        # Turn on case-sensitive pattern matching.
+}
+
+# This subroutine allows for the user to give up and get the answer for a 1 point penalty.
+
+function dunnoSubroutine {
+
+    handle=${nick}
+    shopt -s nocasematch                                            # Turn off case-sensitive pattern matching.
+
+    if [ -f whodat.handle.tmp ] ; then
+        correctAnswer="$(cat whodat.handle.tmp)"
+
+        # Decrement whodatPoints by 5.
+        rosterList=( $(pwd)/whois/roster/*.roster )
+        for file in "${rosterList[@]}" ; do                     # Loop through each roster.
+            
+            # Skip the staff roster.  (i.e. only titles within batch rosters can be edited)
+            if [ $(echo ${file} | grep staff) ] ; then
+                continue
+            fi
+
+            # Look for a line containing the Handle within the file.
+            # Otherwise, continue on to the next file.
+            # Note: regex anchors ^ (start-of-line) and $ (end-of-line) to mitigate unintented substring matches.
+            handleLine=$(cat ${file} | grep -in "^handle: ${handle}$")                              # 129:handle: handle
+            if [ ${handleLine} ] ; then
+                handleLineNumber=$(echo ${handleLine} | sed -e 's/\([0-9]*\):.*/\1/')               # 129
+            else
+                continue
+            fi
+
+            # Decrement the user's points by 5.
+            whodatPointsLineNumber="$((${handleLineNumber} + 4))"
+            points=$(sed -n ${whodatPointsLineNumber}p ${file} | grep -Po '(?<=(whodatPoints: )).*')            # 0
+            points=$((points - 5))                                                                              # -1
+
+            sed -i "${whodatPointsLineNumber}s|.*|whodatPoints\: ${points}|g" ${file}                           # whodatPoints: -1
+
+            replySubroutine "dunno" "${handle}" "${points}" "${correctAnswer}"
+
+            # Break out of the for loop.
+            break
+        done
+
+        rm whodat.handle.tmp whodat.clue.tmp                # Remove the tmp files.
+    else
+        say ${chan} 'Try !whodat'
+    fi
 }
 
 # This subroutine tells the user whether their !isdat answer was right or wrong.
@@ -784,7 +825,6 @@ function replySubroutine {
     handle=${2}
     points=${3}
     correctAnswer=${4}
-    # correctAnswer=$(echo ${4} | tr 'aeiostl' '43105+|')  # Replace certain chars to avoid incessant pinging/highlighting.
 
     if [ "${1}" = "correct" ] ; then
         case "$(shuf -i 0-5 -n 1)" in           # Generate a random number between 0-5, then execute the following case.
@@ -803,24 +843,26 @@ function replySubroutine {
             *)  echo "Error"
                 ;;
         esac
+
     elif [ "${1}" = "wrong" ] ; then
         case "$(shuf -i 0-5 -n 1)" in           # Generate a random number between 0-5, then execute the following case.
-            0)  say ${chan} "Wrong..."
+            0)  say ${chan} "Wrong... ${handle} now has ${points} points."
                 ;;
-            1)  say ${chan} "Try again..."
+            1)  say ${chan} "Try again... ${handle} now has ${points} points."
                 ;;
-            2)  say ${chan} "Erroneous..."
+            2)  say ${chan} "Erroneous... ${handle} now has ${points} points."
                 ;;
-            3)  say ${chan} "I admire your effort, really..."
+            3)  say ${chan} "I admire your effort, really... ${handle} now has ${points} points."
                 ;;
-            4)  say ${chan} "You'll get it next time..."
+            4)  say ${chan} "You'll get it next time... ${handle} now has ${points} points."
                 ;;
-            5)  say ${chan} "Nice try ~:D"
+            5)  say ${chan} "Nice try ~:D ${handle} now has ${points} points."
                 ;;
             *)  echo "Error"
                 ;;
         esac
-    elif [ "${1}" = "give up" ] ; then
+
+    elif [ "${1}" = "dunno" ] ; then
         case "$(shuf -i 0-5 -n 1)" in           # Generate a random number between 0-5, then execute the following case.
             0)  say ${chan} "Everyone has their limits, I suppose. The answer is ${correctAnswer}. ${handle} now has ${points} points"
                 ;;
@@ -837,6 +879,7 @@ function replySubroutine {
             *)  echo "Error"
                 ;;
         esac
+
     fi
 
 }
@@ -897,7 +940,7 @@ function whodaSubroutine {
         done
 
         if [ ${lowestUser} ] ; then
-            say ${chan} "${lowestUser} is on the bottom with ${lowestPoints} points."
+            say ${chan} "${lowestUser} is the underdog with ${lowestPoints} points."
         else
             say ${chan} "No lo at the mo."
         fi
@@ -917,7 +960,7 @@ function helpSubroutine {
     rndRealname=$( cat $(pwd)/whois/roster/*.roster | egrep 'realname: [^ ]' | sed -e 's|realname: ||' | sort -R | head -n 1 )
 
     if [ ${1} = "whois" ] ; then
-        say ${chan} "Usage: !whois ${rndHandle1} -OR- rosterbot: whois ${rndHandle} | !whois ${rndRealname} | !whois CAT.username | !whois OIT.username | !whois =~ ^_.[^s-z]{3}.+$ | !title ${rndHandle2} is a DROOG-1 | !whodat | !whodat ${rndHandle3} | !isdat ${rndHandle4} | !isdat give up | !whodahi | !whodalo | rosterbot: source"
+        say ${chan} "Usage: !whois ${rndHandle1} -OR- rosterbot: whois ${rndHandle} | !whois ${rndRealname} | !whois CAT.username | !whois OIT.username | !whois =~ ^_.[^s-z]{3}.+$ | !whois =~ | !title ${rndHandle2} is a DROOG-1 | !whodat | !whodat ${rndHandle3} | !isdat ${rndHandle4} | !dunno | !whodahi | !whodalo | rosterbot: source"
     elif [ ${1} = "title" ] ; then
         say ${chan} "Usage: !title ${rndHandle} is a CLAW-1, ... | !title ${rndHandle2}"
     fi
@@ -939,7 +982,7 @@ if has "${msg}" "^!rosterbot$" || has "${msg}" "^rosterbot: help$" ; then
 
 # Alive.
 
-elif has "${msg}" "^!alive$" || has "${msg}" "^rosterbot: alive$" ; then
+elif has "${msg}" "^!alive$" || has "${msg}" "^rosterbot: alive(\?)?$" ; then
     say ${chan} "running!"
 
 # Source.
@@ -1047,6 +1090,9 @@ elif has "${msg}" "^!isdat$" || has "${msg}" "^rosterbot: isdat$" ; then
 elif has "${msg}" "^!isdat " || has "${msg}" "^rosterbot: isdat " ; then
     answer=$(echo ${msg} | sed -r 's/^!isdat //' | sed -r 's/rosterbot: isdat //')
     isdatSubroutine ${answer}
+
+elif has "${msg}" "^!dunno$" || has "${msg}" "^rosterbot: dunno$" ; then
+    dunnoSubroutine
 
 elif has "${msg}" "^!whodahi$" || has "${msg}" "^rosterbot: whodahi$" ; then
     whodaSubroutine "highest"
