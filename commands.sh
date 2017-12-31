@@ -22,13 +22,13 @@ function has { $(echo "${1}" | grep -P "${2}" > /dev/null) ; }
 function say { echo "PRIVMSG ${1} :${2}" ; }
 
 function send {
-    while read -r line; do
-      newdate=`date +%s%N`
-      if [ "${prevdate}" -gt "${newdate}" ] ; then
-        sleep `bc -l <<< "(${prevdate} - ${newdate}) / ${nanos}"`
-        newdate=`date +%s%N`
+    while read -r line; do                          # -r flag prevents backslash chars from acting as escape chars.
+      currdate=$(date +%s%N)                         # Get the current date in nanoseconds (UNIX/POSIX/epoch time) since 1970-01-01 00:00:00 UTC (UNIX epoch).
+      if [ "${prevdate}" -gt "${currdate}" ] ; then  # If 0.5 seconds hasn't elapsed since the last loop iteration, sleep. (i.e. force 0.5 sec send intervals).
+        sleep $(bc -l <<< "(${prevdate} - ${currdate}) / ${nanos}")
+        currdate=$(date +%s%N)
       fi
-      prevdate=${newdate}+${interval}
+      prevdate=${currdate}+${interval}
       echo "-> ${1}"
       echo "${line}" >> ${BOT_NICK}.io
     done <<< "${1}"
@@ -77,6 +77,8 @@ function whoisSubroutine {
         privmsg=$(echo '!cat2oit' ${login})                                                     # Send '!cat2oit username' to catbot.
         say "catbot" ${privmsg}                                                                 # Catbot's responses are handled in the
                                                                                                 # "Handler for catbot's !cat2oit responses. (Whois)" section below.
+                                                                                                # Note: catbot's responses will be forwarded to the user/chan
+                                                                                                # AFTER this subroutine is completed.
 
         # Get the Subpath to the user's CAT chronicle page.
         # Note: subpath = cat username in most cases (2010 and onward).
@@ -101,13 +103,7 @@ function whoisSubroutine {
         batch=$(echo ${batch1}${batch2})
 
         # Send results back to the user/channel.
-        # Note: if a user pm's rosterbot, ${chan} will be set to the user's nick
-        if [ ${file} = "${pathToStaffRoster}" ] ; then                                         # Case: match was found in staff.roster
-            say ${chan} "Try -> https://chronicle.cat.pdx.edu/projects/cat/wiki/${subpath}"
-        else
-            say ${chan} "Try -> https://chronicle.cat.pdx.edu/projects/braindump/wiki/${subpath}"
-        fi
-
+        # Note: if a user send a pm to rosterbot, ${chan} will be set to the user's nick.
         if [ ${title} ] ; then                                                                  # Case: user has a title
             say ${chan} "${handle}'s real name is ${realname}, ${handle} ${title}"
         else
@@ -116,13 +112,19 @@ function whoisSubroutine {
 
         say ${chan} "${handle} belongs to the ${batch}, ${year}"
 
+        if [ ${file} = "${pathToStaffRoster}" ] ; then                                          # Case: match was found in staff.roster
+            say ${chan} "Try -> https://chronicle.cat.pdx.edu/projects/cat/wiki/${subpath}"
+        else
+            say ${chan} "Try -> https://chronicle.cat.pdx.edu/projects/braindump/wiki/${subpath}"
+        fi
+
         found=$((${found} + 1))                             # Set found flag to 1.
     done
 
     # Parse based on cat login name.    ----------------------------------------------------------------------------------
 
     if [ "${found}" -eq "0" ] ; then                        # If a Handle match was already found, skip this if block.
-        # login=$(echo ${arg} | sed 's/ .*//')                # Just capture the first word.
+        # login=$(echo ${arg} | sed 's/ .*//')              # Just capture the first word.
         login=$(echo ${arg})
 
         arr=()                                              # Declare an empty array (list of entries found).
@@ -960,7 +962,7 @@ function helpSubroutine {
     rndRealname=$( cat $(pwd)/whois/roster/*.roster | egrep 'realname: [^ ]' | sed -e 's|realname: ||' | sort -R | head -n 1 )
 
     if [ ${1} = "whois" ] ; then
-        say ${chan} "Usage: !whois ${rndHandle1} -OR- rosterbot: whois ${rndHandle} | !whois ${rndRealname} | !whois CAT.username | !whois OIT.username | !whois =~ ^_.[^s-z]{3}.+$ | !whois =~ | !title ${rndHandle2} is a DROOG-1 | !whodat | !whodat ${rndHandle3} | !isdat ${rndHandle4} | !dunno | !whodahi | !whodalo | rosterbot: source"
+        say ${chan} "Usage: !whois ${rndHandle1} -OR- rosterbot: whois ${rndHandle} | !whois ${rndRealname} | !whois CAT.username | !whois OIT.username | !whois =~ ^_.[^s-zA-Z]{3}.+$ | !whois =~ | !title ${rndHandle2} is a DROOG-1 | !whodat | !whodat ${rndHandle3} | !isdat ${rndHandle4} | !dunno | !whodahi | !whodalo | rosterbot: source"
     elif [ ${1} = "title" ] ; then
         say ${chan} "Usage: !title ${rndHandle} is a CLAW-1, ... | !title ${rndHandle2}"
     fi
@@ -988,7 +990,7 @@ elif has "${msg}" "^!alive$" || has "${msg}" "^rosterbot: alive(\?)?$" ; then
 # Source.
 
 elif has "${msg}" "^rosterbot: source$" ; then
-    say ${chan} "Try -> https://github.com/kimdj/rosterbot | /u/dkim/sandbox/rosterbot"
+    say ${chan} "Try -> https://github.com/kimdj/rosterbot -OR- /u/dkim/rosterbot"
 
 # Whois Regex Pattern Matching.  (Note: Must precede Whois, to check for '=~')
 
