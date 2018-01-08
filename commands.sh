@@ -324,12 +324,17 @@ function titleSubroutine {
     found=0                                                 # Initialize found flag to 0.
     arg=${1}
 
-    handle=$(echo ${arg} | sed 's/ .*//')                     # Just capture the first word.
-    newTitle=$(echo ${arg} | cut -d " " -f2-)                 # Capture the remaining words.
+    handle=$(echo ${arg} | sed 's/ .*//')                   # Just capture the first word.
+    newTitle=$(echo ${arg} | cut -d " " -f2-)               # Capture the remaining words.
     rosterList=( $(pwd)/whois/roster/*.roster )
 
     if [ ! ${handle} ] ; then
         say ${chan} "input error"
+        return 1
+    fi
+
+    if [ ! ${handle} = ${nick} ] ; then                     # Only allow a user to modify their own title.
+        say ${chan} "not allowed"
         return 1
     fi
 
@@ -354,7 +359,7 @@ function titleSubroutine {
         titleLineNumber="$((${handleLineNumber} + 2))"
         oldTitle=$(sed -n ${titleLineNumber}p ${file} | grep -Po '(?<=(title: )).*')            # title
 
-        if [[ ${newTitle} = ${handle} ]] ; then                                                # clear title
+        if [[ ${newTitle} = ${handle} ]] ; then                                                 # clear title
             newTitle=''
         fi
 
@@ -695,6 +700,7 @@ function isdatSubroutine {
     if [ -f whodat.handle.tmp ] ; then
         userAnswer=${1}
         correctAnswer="$(cat whodat.handle.tmp)"
+        found=0                                                     # The found flag is used in case the nick is not in the CAT roster.
 
         # Check if the answer is correct.  If correct, give the user +3 points.
         if [ "${userAnswer^^}" = "${correctAnswer^^}" ] ; then  # ${str,,} converts str to lowercase, ${str^^} converts str to uppercase
@@ -727,13 +733,22 @@ function isdatSubroutine {
 
                 replySubroutine "correct" "${handle}" "${points}"
 
+                # Set the found flag.
+                found=1
+
                 # Break out of the for loop.
                 break
             done
 
+            # Case: if user is not in the CAT roster
+            if [ ${found} -eq 0 ] ; then
+                say ${chan} 'Correct'
+            fi
+
             rm whodat.handle.tmp whodat.clue.tmp                # Remove the tmp files.
+
         else
-          
+
             # Decrement user's whodatPoints.
             rosterList=( $(pwd)/whois/roster/*.roster )
             for file in "${rosterList[@]}" ; do                     # Loop through each roster.
@@ -762,9 +777,18 @@ function isdatSubroutine {
 
                 replySubroutine "wrong" "${handle}" "${points}"
 
+                # Set the found flag.
+                found=1
+
                 # Break out of the for loop.
                 break
             done
+
+            # Case: if user is not in the CAT roster
+            if [ ${found} -eq 0 ] ; then
+                say ${chan} 'Wrong'
+            fi
+
         fi
     else
         say ${chan} 'Try !whodat'
