@@ -742,7 +742,7 @@ function isdatSubroutine {
 
             # Case: if user is not in the CAT roster
             if [ ${found} -eq 0 ] ; then
-                say ${chan} 'Correct'
+                say ${chan} 'Correct!'
             fi
 
             rm whodat.handle.tmp whodat.clue.tmp                # Remove the tmp files.
@@ -786,7 +786,7 @@ function isdatSubroutine {
 
             # Case: if user is not in the CAT roster
             if [ ${found} -eq 0 ] ; then
-                say ${chan} 'Wrong'
+                say ${chan} 'Wrong!'
             fi
 
         fi
@@ -805,6 +805,7 @@ function dunnoSubroutine {
 
     if [ -f whodat.handle.tmp ] ; then
         correctAnswer="$(cat whodat.handle.tmp)"
+        found=0                                                     # The found flag is used in case the nick is not in the CAT roster.
 
         # Decrement whodatPoints by 5.
         rosterList=( $(pwd)/whois/roster/*.roster )
@@ -837,6 +838,11 @@ function dunnoSubroutine {
             # Break out of the for loop.
             break
         done
+
+        # Case: if user is not in the CAT roster
+        if [ ${found} -eq 0 ] ; then
+            say ${chan} 'Wrong!'
+        fi
 
         rm whodat.handle.tmp whodat.clue.tmp                # Remove the tmp files.
     else
@@ -1089,14 +1095,14 @@ elif has "${msg}" "^!title " || has "${msg}" "^rosterbot: title " ; then
 
 # Have rosterbot send an IRC command to the IRC server.
 
-elif has "${msg}" "^!injectcmd " || has "${msg}" "^rosterbot: injectcmd " && [[ ${nick} = "_sharp" ]] ; then
-    cmd=$(echo ${msg} | sed -r 's/^!injectcmd //' | sed -r 's/^rosterbot: injectcmd //')
+elif has "${msg}" "^rosterbot: injectcmd " && [[ ${nick} = "_sharp" ]] ; then
+    cmd=$(echo ${msg} | sed -r 's/^rosterbot: injectcmd //')
     send "${cmd}"
 
 # Have rosterbot send a message.
 
-elif has "${msg}" "^!sendcmd " || has "${msg}" "^rosterbot: sendcmd " && [[ ${nick} = "_sharp" ]] ; then
-    buffer=$(echo ${msg} | sed -re 's/^!sendcmd //' | sed -re 's/^rosterbot: sendcmd //')
+elif has "${msg}" "^rosterbot: sendcmd " && [[ ${nick} = "_sharp" ]] ; then
+    buffer=$(echo ${msg} | sed -re 's/^rosterbot: sendcmd //')
     dest=$(echo ${buffer} | sed -e "s| .*||")
     message=$(echo ${buffer} | cut -d " " -f2-)
     say ${dest} "${message}"
