@@ -992,7 +992,7 @@ function helpSubroutine {
     rndRealname=$( cat $(pwd)/whois/roster/*.roster | egrep 'realname: [^ ]' | sed -e 's|realname: ||' | sort -R | head -n 1 )
 
     if [ ${1} = "whois" ] ; then
-        say ${chan} "Usage: !whois ${rndHandle1} -OR- rosterbot: whois ${rndHandle} | !whois ${rndRealname} | !whois CAT.username | !whois OIT.username | !whois =~ ^_.[^s-zA-Z]{3}.+$ | !whois =~ | !title ${rndHandle2} is a DROOG-1 | !whodat | !whodat ${rndHandle3} | !isdat ${rndHandle4} | !dunno | !whodahi | !whodalo | rosterbot: source"
+        say ${chan} "Usage: !whois ${rndHandle1} | !whois ${rndRealname} | !whois CAT.username | !whois OIT.username | !whois =~ ^_.[^s-zA-Z]{3}.+$ | !whois =~ | !title ${rndHandle2} is a DROOG-1 | !whodat | !whodat ${rndHandle3} | !isdat ${rndHandle4} | !dunno | !whodahi | !whodalo | rosterbot: source"
     elif [ ${1} = "title" ] ; then
         say ${chan} "Usage: !title ${rndHandle} is a CLAW-1, ... | !title ${rndHandle2}"
     fi
@@ -1014,13 +1014,13 @@ if has "${msg}" "^!rosterbot$" || has "${msg}" "^rosterbot: help$" ; then
 
 # Alive.
 
-elif has "${msg}" "^!alive$" || has "${msg}" "^rosterbot: alive(\?)?$" ; then
+elif has "${msg}" "^!alive(\?)?$" || has "${msg}" "^rosterbot: alive(\?)?$" ; then
     say ${chan} "running!"
 
 # Source.
 
 elif has "${msg}" "^rosterbot: source$" ; then
-    say ${chan} "Try -> https://github.com/kimdj/rosterbot -OR- /u/dkim/rosterbot"
+    say ${chan} "Try -> https://github.com/kimdj/rosterbot | /u/dkim/rosterbot"
 
 # Whois Regex Pattern Matching.  (Note: Must precede Whois, to check for '=~')
 
