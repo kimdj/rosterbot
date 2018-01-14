@@ -23,13 +23,13 @@ function say { echo "PRIVMSG ${1} :${2}" ; }
 
 function send {
     while read -r line; do                          # -r flag prevents backslash chars from acting as escape chars.
-      currdate=$(date +%s%N)                         # Get the current date in nanoseconds (UNIX/POSIX/epoch time) since 1970-01-01 00:00:00 UTC (UNIX epoch).
-      if [ "${prevdate}" -gt "${currdate}" ] ; then  # If 0.5 seconds hasn't elapsed since the last loop iteration, sleep. (i.e. force 0.5 sec send intervals).
+      currdate=$(date +%s%N)                        # Get the current date in nanoseconds (UNIX/POSIX/epoch time) since 1970-01-01 00:00:00 UTC (UNIX epoch).
+      if [ "${prevdate}" = "${currdate}" ] ; then   # If 0.5 seconds hasn't elapsed since the last loop iteration, sleep. (i.e. force 0.5 sec send intervals).
         sleep $(bc -l <<< "(${prevdate} - ${currdate}) / ${nanos}")
         currdate=$(date +%s%N)
       fi
       prevdate=${currdate}+${interval}
-      echo "-> ${1}"
+      echo "~> ${1}"
       echo "${line}" >> ${BOT_NICK}.io
     done <<< "${1}"
 }
@@ -322,21 +322,19 @@ function whoisRegexSubroutine {
 
 function titleSubroutine {
     found=0                                                 # Initialize found flag to 0.
-    arg=${1}
 
-    handle=$(echo ${arg} | sed 's/ .*//')                   # Just capture the first word.
-    newTitle=$(echo ${arg} | cut -d " " -f2-)               # Capture the remaining words.
+    if [[ ${1} = "-c" ]] || [[ ${1} = "--clear" ]] || [[ ${1} = "clear" ]]; then
+        clear_flag=1
+    else
+        clear_flag=0
+    fi
+
+    if [[ $(echo ${1} | sed 's| .*||') = ${nick} ]] ; then
+        newTitle=$(echo ${1} | cut -d " " -f2-)               # Capture the remaining words1.
+    else
+        newTitle=$(echo ${1})
+    fi
     rosterList=( $(pwd)/whois/roster/*.roster )
-
-    if [ ! ${handle} ] ; then
-        say ${chan} "input error"
-        return 1
-    fi
-
-    if [ ! ${handle} = ${nick} ] ; then                     # Only allow a user to modify their own title.
-        say ${chan} "not allowed"
-        return 1
-    fi
 
     for file in "${rosterList[@]}" ; do                     # Loop through each roster.
 
@@ -348,7 +346,7 @@ function titleSubroutine {
         # Look for a line containing the Handle within the file.
         # Otherwise, continue on to the next file.
         # Note: regex anchors ^ (start-of-line) and $ (end-of-line) to mitigate unintented substring matches.
-        handleLine=$(cat ${file} | grep -in "^handle: ${handle}$")                              # 129:handle: handle
+        handleLine=$(cat ${file} | grep -in "^handle: ${nick}$")                              # 129:handle: handle
         if [ ${handleLine} ] ; then
             handleLineNumber=$(echo ${handleLine} | sed -e 's/\([0-9]*\):.*/\1/')               # 129
         else
@@ -359,20 +357,19 @@ function titleSubroutine {
         titleLineNumber="$((${handleLineNumber} + 2))"
         oldTitle=$(sed -n ${titleLineNumber}p ${file} | grep -Po '(?<=(title: )).*')            # title
 
-        if [[ ${newTitle} = ${handle} ]] ; then                                                 # clear title
+        if [[ ${clear_flag} = 1 ]] ; then                                                 # clear title
             newTitle=''
-        fi
-
-        if [ -n "${newTitle}" ] ; then
-            say ${chan} "${handle}'s title was modified"
+            say ${chan} "${nick}'s title was cleared"
+            $(sed -i "${titleLineNumber}s/.*/title: /" ${file})                                 # clear title
+        # elif [ -n "${newTitle}" ] ; then
+        else
+            say ${chan} "${nick}'s title was modified"
             $(sed -i "${titleLineNumber}s|.*|title: ${newTitle}|" ${file})                      # replace title with new title
             currentTitle=$(sed -n ${titleLineNumber}p ${file} | grep -Po '(?<=(title: )).*')    # title
-        else
-            say ${chan} "${handle}'s title was cleared"
-            $(sed -i "${titleLineNumber}s/.*/title: /" ${file})                                 # clear title
         fi
 
         found=$((${found} + 1))             # Set found flag to 1.
+        break
     done
 
     # If a match was not found..
@@ -992,9 +989,11 @@ function helpSubroutine {
     rndRealname=$( cat $(pwd)/whois/roster/*.roster | egrep 'realname: [^ ]' | sed -e 's|realname: ||' | sort -R | head -n 1 )
 
     if [ ${1} = "whois" ] ; then
-        say ${chan} "Usage: !whois ${rndHandle1} | !whois ${rndRealname} | !whois CAT.username | !whois OIT.username | !whois =~ ^_.[^s-zA-Z]{3}.+$ | !whois =~ | !title ${rndHandle2} is a DROOG-1 | !whodat | !whodat ${rndHandle3} | !isdat ${rndHandle4} | !dunno | !whodahi | !whodalo | rosterbot: source"
+        say ${chan} "usage: !whois [${rndHandle1}] [${rndRealname}] [CAT/OIT.uname] [=~ ^_.[^s-zA-Z]{3}.+$] ~ !whoami ~ !title [${rndHandle2} is a DROOG-1 [, CLAW-1, ...]] [-c | --clear | clear] ~ rosterbot: source"
     elif [ ${1} = "title" ] ; then
-        say ${chan} "Usage: !title ${rndHandle} is a CLAW-1, ... | !title ${rndHandle2}"
+        say ${chan} "usage: !title [${nick} is a CLAW-1 [, DROOG-1, ...]] [-c | --clear | clear]"
+    elif [ ${1} = "whodat" ] ; then
+        say ${chan} "usage: !whodat ~ !whodat ${rndHandle3} ~ !isdat ${rndHandle4} ~ !dunno ~ !whodahi ~ !whodalo"
     fi
 
 }
@@ -1019,8 +1018,16 @@ elif has "${msg}" "^!alive(\?)?$" || has "${msg}" "^rosterbot: alive(\?)?$" ; th
 
 # Source.
 
-elif has "${msg}" "^rosterbot: source$" ; then
-    say ${chan} "Try -> https://github.com/kimdj/rosterbot | /u/dkim/rosterbot"
+elif has "${msg}" "^rosterbot: source$" ||
+     has "${msg}" "^!rosterbot source$" ||
+     has "${msg}" "^!whois source$" ||
+     has "${msg}" "^!title source$" ||
+     has "${msg}" "^!whodat source$" ||
+     has "${msg}" "^!isdat source$" ||
+     has "${msg}" "^!dunno source$" ||
+     has "${msg}" "^!whodahi source$" ||
+     has "${msg}" "^!whodalo source$" ; then
+    say ${chan} "Try -> https://github.com/kimdj/rosterbot, /u/dkim/rosterbot"
 
 # Whois Regex Pattern Matching.  (Note: Must precede Whois, to check for '=~')
 
@@ -1042,10 +1049,15 @@ elif has "${msg}" "^!whois " || has "${msg}" "^rosterbot: whois " ; then
     searchString=$(echo ${msg} | sed -r 's/^!whois //' | sed -r 's/^rosterbot: whois //')                # cut out the leading part from ${msg}
     whoisSubroutine ${searchString}
 
-# Who.
+# Whoami.
 
-elif has "${msg}" "^!who$" || has "${msg}" "^rosterbot: who$" ; then
-    helpSubroutine whois
+elif has "${msg}" "^!whoami$" || has "${msg}" "^rosterbot: whoami$" ; then
+    whoisSubroutine ${nick}
+
+# # Who.
+
+# elif has "${msg}" "^!who$" || has "${msg}" "^rosterbot: who$" ; then
+#     helpSubroutine whois
 
 elif has "${msg}" "^!who " || has "${msg}" "^rosterbot: who " ; then
     searchString=$(echo ${msg} | sed -r 's/^!who //' | sed -r 's/^rosterbot: who //')                # cut out the leading part from ${msg}
