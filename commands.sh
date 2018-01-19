@@ -15,6 +15,10 @@ BOT_NICK="$(grep -P "BOT_NICK=.*" ${DIR}/rosterbot.sh | cut -d '=' -f 2- | tr -d
 
 if [ "${chan}" = "${BOT_NICK}" ] ; then chan="${nick}" ; fi
 
+###################################################  Settings  ####################################################
+
+AUTHORIZED='_sharp MattDaemon'                      # List of users authorized to execute bot commands (e.g. injectcmd, sendcmd).
+
 ###############################################  Subroutines Begin  ###############################################
 
 function has { $(echo "${1}" | grep -P "${2}" > /dev/null) ; }
@@ -989,9 +993,9 @@ function helpSubroutine {
     rndRealname=$( cat $(pwd)/whois/roster/*.roster | egrep 'realname: [^ ]' | sed -e 's|realname: ||' | sort -R | head -n 1 )
 
     if [ ${1} = "whois" ] ; then
-        say ${chan} "usage: !whois [${rndHandle1}] [${rndRealname}] [CAT/OIT.uname] [=~ ^_.[^s-zA-Z]{3}.+$] ~ !whoami ~ !title [${rndHandle2} is a DROOG-1 [, CLAW-1, ...]] [-c | --clear | clear] ~ rosterbot: source"
+        say ${chan} "usage: !whois [${rndHandle1}] [${rndRealname}] [CAT/OIT.uname] [=~ ^_.[^s-zA-Z]{3}.+$] ~ !whoami ~ !title [is a DROOG-1, CLAW-1, ...] [-c | --clear | clear] ~ rosterbot: source"
     elif [ ${1} = "title" ] ; then
-        say ${chan} "usage: !title [${nick} is a CLAW-1 [, DROOG-1, ...]] [-c | --clear | clear]"
+        say ${chan} "usage: !title [is a CLAW-1, DROOG-1, ...] [-c | --clear | clear]"
     elif [ ${1} = "whodat" ] ; then
         say ${chan} "usage: !whodat ~ !whodat ${rndHandle3} ~ !isdat ${rndHandle4} ~ !dunno ~ !whodahi ~ !whodalo"
     fi
@@ -1014,7 +1018,10 @@ if has "${msg}" "^!rosterbot$" || has "${msg}" "^rosterbot: help$" ; then
 # Alive.
 
 elif has "${msg}" "^!alive(\?)?$" || has "${msg}" "^rosterbot: alive(\?)?$" ; then
-    say ${chan} "running!"
+    str1='running! '
+    str2=$(ps aux | grep ./rosterbot | head -n 1 | awk '{ print "[%CPU "$3"]", "[%MEM "$4"]", "[START "$9"]", "[TIME "$10"]" }')
+    str="${str1}${str2}"
+    say ${chan} "${str}"
 
 # Source.
 
@@ -1107,13 +1114,13 @@ elif has "${msg}" "^!title " || has "${msg}" "^rosterbot: title " ; then
 
 # Have rosterbot send an IRC command to the IRC server.
 
-elif has "${msg}" "^rosterbot: injectcmd " && [[ ${nick} = "_sharp" ]] ; then
+elif has "${msg}" "^rosterbot: injectcmd " && [[ "${AUTHORIZED}" == *"${nick}"* ]] ; then
     cmd=$(echo ${msg} | sed -r 's/^rosterbot: injectcmd //')
     send "${cmd}"
 
 # Have rosterbot send a message.
 
-elif has "${msg}" "^rosterbot: sendcmd " && [[ ${nick} = "_sharp" ]] ; then
+elif has "${msg}" "^rosterbot: sendcmd " && [[ "${AUTHORIZED}" == *"${nick}"* ]] ; then
     buffer=$(echo ${msg} | sed -re 's/^rosterbot: sendcmd //')
     dest=$(echo ${buffer} | sed -e "s| .*||")
     message=$(echo ${buffer} | cut -d " " -f2-)
