@@ -802,7 +802,7 @@ function dunnoSubroutine {
 
     if [ -f whodat.handle.tmp ] ; then
         correctAnswer="$(cat whodat.handle.tmp)"
-        found=0                                                     # The found flag is used in case the nick is not in the CAT roster.
+        # found=0                                                     # The found flag is used in case the nick is not in the CAT roster.
 
         # Decrement whodatPoints by 5.
         rosterList=( $(pwd)/whois/roster/*.roster )
@@ -836,10 +836,10 @@ function dunnoSubroutine {
             break
         done
 
-        # Case: if user is not in the CAT roster
-        if [ ${found} -eq 0 ] ; then
-            say ${chan} 'Wrong!'
-        fi
+        # # Case: if user is not in the CAT roster
+        # if [ ${found} -eq 0 ] ; then
+        #     say ${chan} 'Wrong!'
+        # fi
 
         rm whodat.handle.tmp whodat.clue.tmp                # Remove the tmp files.
     else
