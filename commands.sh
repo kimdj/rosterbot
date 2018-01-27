@@ -109,7 +109,7 @@ function whoisSubroutine {
         # Send results back to the user/channel.
         # Note: if a user send a pm to rosterbot, ${chan} will be set to the user's nick.
         if [ ${title} ] ; then                                                                  # Case: user has a title
-            say ${chan} "${handle}'s real name is ${realname}, ${handle} ${title}"
+            say ${chan} "${handle}'s real name is ${realname}, ${handle} "$(echo "${title}" | tr 'aeiostl' '43105+|' | tr 'AEIOSTL' '43105+|')""
         else
             say ${chan} "${handle}'s real name is ${realname}"
         fi
@@ -334,13 +334,13 @@ function titleSubroutine {
     fi
 
     if [[ $(echo ${1} | sed 's| .*||') = ${nick} ]] ; then
-        newTitle=$(echo ${1} | cut -d " " -f2-)               # Capture the remaining words1.
+        newTitle=$(echo ${1} | cut -d " " -f2-)                 # Capture the remaining words1.
     else
         newTitle=$(echo ${1})
     fi
     rosterList=( $(pwd)/whois/roster/*.roster )
 
-    for file in "${rosterList[@]}" ; do                     # Loop through each roster.
+    for file in "${rosterList[@]}" ; do                         # Loop through each roster.
 
         # Skip the staff roster.  (i.e. only titles within batch rosters can be edited)
         if [ $(echo ${file} | grep staff) ] ; then
@@ -450,7 +450,7 @@ function whoSubroutine {
         # fi
 
         # if [ ${title} ] ; then                                                                  # Case: user has a title
-        #     say ${chan} "${handle}'s real name is ${realname} | ${handle} ${title}"
+        #     say ${chan} "${handle}'s real name is ${realname} | ${handle} "$(echo "${title}" | tr 'aeiostl' '43105+|' | tr 'AEIOSTL' '43105+|')""
         # else
         #     say ${chan} "${handle}'s real name is ${realname}"
         # fi
@@ -1034,7 +1034,7 @@ elif has "${msg}" "^rosterbot: source$" ||
      has "${msg}" "^!dunno source$" ||
      has "${msg}" "^!whodahi source$" ||
      has "${msg}" "^!whodalo source$" ; then
-    say ${chan} "Try -> https://github.com/kimdj/rosterbot, /u/dkim/rosterbot"
+    say ${chan} "Try -> https://github.com/kimdj/rosterbot, ${DIR}"
 
 # Whois Regex Pattern Matching.  (Note: Must precede Whois, to check for '=~')
 
@@ -1112,20 +1112,6 @@ elif has "${msg}" "^!title " || has "${msg}" "^rosterbot: title " ; then
     title=$(echo ${msg} | sed -r 's/^!title //' | sed -r 's/^rosterbot: title //')                   # cut out '!title ' from ${msg}
     titleSubroutine ${title}
 
-# Have rosterbot send an IRC command to the IRC server.
-
-elif has "${msg}" "^rosterbot: injectcmd " && [[ "${AUTHORIZED}" == *"${nick}"* ]] ; then
-    cmd=$(echo ${msg} | sed -r 's/^rosterbot: injectcmd //')
-    send "${cmd}"
-
-# Have rosterbot send a message.
-
-elif has "${msg}" "^rosterbot: sendcmd " && [[ "${AUTHORIZED}" == *"${nick}"* ]] ; then
-    buffer=$(echo ${msg} | sed -re 's/^rosterbot: sendcmd //')
-    dest=$(echo ${buffer} | sed -e "s| .*||")
-    message=$(echo ${buffer} | cut -d " " -f2-)
-    say ${dest} "${message}"
-
 # Whodat game.
 
 elif has "${msg}" "^!whodat$" || has "${msg}" "^rosterbot: whodat$" ; then
@@ -1150,6 +1136,20 @@ elif has "${msg}" "^!whodahi$" || has "${msg}" "^rosterbot: whodahi$" ; then
 
 elif has "${msg}" "^!whodalo$" || has "${msg}" "^rosterbot: whodalo$" ; then
     whodaSubroutine "lowest"
+
+# Have rosterbot send an IRC command to the IRC server.
+
+elif has "${msg}" "^rosterbot: injectcmd " && [[ "${AUTHORIZED}" == *"${nick}"* ]] ; then
+    cmd=$(echo ${msg} | sed -r 's/^rosterbot: injectcmd //')
+    send "${cmd}"
+
+# Have rosterbot send a message.
+
+elif has "${msg}" "^rosterbot: sendcmd " && [[ "${AUTHORIZED}" == *"${nick}"* ]] ; then
+    buffer=$(echo ${msg} | sed -re 's/^rosterbot: sendcmd //')
+    dest=$(echo ${buffer} | sed -e "s| .*||")
+    message=$(echo ${buffer} | cut -d " " -f2-)
+    say ${dest} "${message}"
 
 fi
 
