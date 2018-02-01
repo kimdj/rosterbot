@@ -49,6 +49,9 @@ function removeTmpSubroutine {
 
 function whoisSubroutine {
 
+    if [ "${2}" = "privmsg" ] ; then
+        chan="${nick}"
+    fi
     echo "${chan}" > requester.tmp                  # Store ${chan} in a file (requester.tmp is used during catbot's response handler).
     found=0                                         # Initialize found flag to 0 (incremented when a match is found).
     pathToStaffRoster="$(pwd)/whois/roster/staff.roster"
@@ -993,7 +996,7 @@ function helpSubroutine {
     rndRealname=$( cat $(pwd)/whois/roster/*.roster | egrep 'realname: [^ ]' | sed -e 's|realname: ||' | sort -R | head -n 1 )
 
     if [ ${1} = "whois" ] ; then
-        say ${chan} "usage: !whois [${rndHandle1}] [${rndRealname}] [CAT/OIT.uname] [=~ ^_.[^s-zA-Z]{3}.+$] ~ !whoami ~ !title [is a DROOG-1, CLAW-1, ...] [-c | --clear | clear] ~ rosterbot: source"
+        say ${chan} "usage: !whois [${rndHandle1}] [${rndRealname}] [CAT/OIT.uname] [=~ ^_.[^s-zA-Z]{3}.+$] ~ !whoami ~ !title [is a DROOG-1, CLAW-1, ...] [-c | --clear | clear] ~ [-p] ~ rosterbot: source"
     elif [ ${1} = "title" ] ; then
         say ${chan} "usage: !title [is a CLAW-1, DROOG-1, ...] [-c | --clear | clear]"
     elif [ ${1} = "whodat" ] ; then
@@ -1054,7 +1057,12 @@ elif has "${msg}" "^!whois$" || has "${msg}" "^rosterbot: whois$" ; then
 
 elif has "${msg}" "^!whois " || has "${msg}" "^rosterbot: whois " ; then
     searchString=$(echo ${msg} | sed -r 's/^!whois //' | sed -r 's/^rosterbot: whois //')                # cut out the leading part from ${msg}
-    whoisSubroutine ${searchString}
+    if [[ "${searchString}" = *-p* ]] ; then
+        searchString="$(echo ${searchString} | sed -r 's|-p ||')"
+        whoisSubroutine ${searchString} "privmsg"
+    else
+        whoisSubroutine ${searchString}
+    fi
 
 # Whoami.
 
