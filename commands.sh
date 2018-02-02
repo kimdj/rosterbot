@@ -112,7 +112,47 @@ function whoisSubroutine {
         # Send results back to the user/channel.
         # Note: if a user send a pm to rosterbot, ${chan} will be set to the user's nick.
         if [ ${title} ] ; then                                                                  # Case: user has a title
-            say ${chan} "${handle}'s real name is ${realname}, ${handle} "$(echo "${title}" | tr 'aeiostl' '43105+|' | tr 'AEIOSTL' '43105+|')""
+            IFS=' ' read -r -a title_array <<< "$title"
+            for word in "${title_array[@]}" ; do
+
+                if [[ "${word,,}" = "a" ]] ||
+                   [[ "${word,,}" = "an" ]] ||
+                   [[ "${word,,}" = "is" ]] ||
+                   [[ "${word,,}" = "was" ]] ; then true
+                elif [[ "${word,,}" = *a* ]] ; then
+                  converted_word="$(echo "${word}" | tr 'a' '4' | tr 'A' '4')"
+                  title="$(echo "${title}" | sed -r "s|${word}|${converted_word}|")"
+                elif [[ "${word,,}" = *e* ]] ; then
+                  converted_word="$(echo "${word}" | tr 'e' '3' | tr 'E' '3')"
+                  title="$(echo "${title}" | sed -r "s|${word}|${converted_word}|")"
+                elif [[ "${word,,}" = *i* ]] ; then
+                  converted_word="$(echo "${word}" | tr 'i' '1' | tr 'I' '1')"
+                  title="$(echo "${title}" | sed -r "s|${word}|${converted_word}|")"
+                elif [[ "${word,,}" = *o* ]] ; then
+                  converted_word="$(echo "${word}" | tr 'o' '0' | tr 'O' '0')"
+                  title="$(echo "${title}" | sed -r "s|${word}|${converted_word}|")"
+                elif [[ "${word,,}" = *s* ]] ; then
+                  converted_word="$(echo "${word}" | tr 's' '5' | tr 'S' '5')"
+                  title="$(echo "${title}" | sed -r "s|${word}|${converted_word}|")"
+                elif [[ "${word,,}" = *t* ]] ; then
+                  converted_word="$(echo "${word}" | tr 't' '+' | tr 'T' '+')"
+                  title="$(echo "${title}" | sed -r "s|${word}|${converted_word}|")"
+                elif [[ "${word,,}" = *l* ]] ; then
+                  converted_word="$(echo "${word}" | tr 'l' '|' | tr 'L' '|')"
+                  title="$(echo "${title}" | sed -r "s|${word}|${converted_word}|")"
+                # elif [[ "${word,,}" =~ [^a-zA-Z0-9] ]] ; then
+                #   true
+                else
+                  # ${str:${i}:1}
+                  rand=$[ ${RANDOM} % ${#word} ]
+                  converted_word=$(echo "${word}" | sed s/./\*/${rand})
+                  # index="${#chan}"    # the last index
+                  # converted_word=$(echo "${word}" | sed s/./\*/${index})
+                  title="$(echo "${title}" | sed -r "s|${word}|${converted_word}|")"
+                fi
+            done
+            # say ${chan} "${handle}'s real name is ${realname}, ${handle} "$(echo "${title}" | tr 'aeiostl' '43105+|' | tr 'AEIOSTL' '43105+|')""
+            say ${chan} "${handle}'s real name is ${realname}, ${handle} ${title}"
         else
             say ${chan} "${handle}'s real name is ${realname}"
         fi
