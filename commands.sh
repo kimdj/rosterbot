@@ -254,6 +254,7 @@ function whoisSubroutine {
             say "catbot" ${privmsg}
         fi
     fi
+
 }
 
 # This subroutine handles the case where catbot's !oit2cat yields a result.
@@ -1023,6 +1024,86 @@ function whodaSubroutine {
     fi
 }
 
+# This subroutine looks up bot roster information.
+
+function botSubroutine {
+
+    # Parse based on bot name.    ----------------------------------------------------------------------------------
+
+    dest="${1}"
+    handle="${2}"
+    botRosterFile=( $(pwd)/whois/roster/roster.bots )
+
+    handle="$(echo ${handle} | sed -r 's|^No matching MCECS uid found for ||' | sed -r 's|^No matching OIT uid found for ||')"
+
+    # Look for a line containing the handle within the file.
+    # Note: regex anchors ^ (start-of-line) and $ (end-of-line) to mitigate unintented substring matches.
+    handleLine=$(cat ${botRosterFile} | grep -in "^handle: ${handle}$")                              # 129:handle: handle
+
+    if [ ${handleLine} ] ; then
+
+        # Get the line number.
+        handleLineNumber=$(echo ${handleLine} | sed -e 's/\([0-9]*\):.*/\1/')                               # 129
+
+        # Get the Handle.
+        handle=$(sed -n ${handleLineNumber}p ${botRosterFile} | grep -Po '(?<=(handle: )).*')               # handle
+
+        # Get the developer's name.
+        developerLineNumber="$((${handleLineNumber} + 1))"                                                  # 130
+        developer=$(sed -n ${developerLineNumber}p ${botRosterFile} | grep -Po '(?<=(developer: )).*')      # developer
+
+        # Get the About content.
+        aboutLineNumber="$((${handleLineNumber} + 2))"                                                      # 131
+        about=$(sed -n ${aboutLineNumber}p ${botRosterFile} | grep -Po '(?<=(about: )).*')                  # about
+
+        # Send results back to the user/channel.
+        # Note: if a user send a pm to rosterbot, ${chan} will be set to the user's nick.
+        say ${dest} "${handle}'s developer is ${developer}"
+        say ${dest} "${about}"
+
+        return 0                                # Bot handle is found; return 0.
+    fi
+
+    return 1                                    # Bot handle was not found; return 1.
+}
+
+# TEMPORARY: This subroutine modifies bot roster information ('about' field).
+
+function aboutSubroutine {
+
+    # Parse based on bot name.    ----------------------------------------------------------------------------------
+
+    handle="${1}"
+    newAbout="${2}"
+    botRosterFile=( $(pwd)/whois/roster/roster.bots )
+
+    # Look for a line containing the handle within the file.
+    # Note: regex anchors ^ (start-of-line) and $ (end-of-line) to mitigate unintented substring matches.
+    handleLine=$(cat ${botRosterFile} | grep -in "^handle: ${handle}$")                                     # 129:handle: handle
+
+    if [ ${handleLine} ] ; then
+
+        # Get the line number.
+        handleLineNumber=$(echo ${handleLine} | sed -e 's/\([0-9]*\):.*/\1/')                               # 129
+
+        # Modify the About section.
+        aboutLineNumber="$((${handleLineNumber} + 2))"
+        oldAbout=$(sed -n ${aboutLineNumber}p ${botRosterFile} | grep -Po '(?<=(about: )).*')               # about
+
+        $(sed -i "${aboutLineNumber}s|.*|about: ${newAbout}|" ${botRosterFile})                             # replace about with new about
+        currentAbout=$(sed -n ${aboutLineNumber}p ${botRosterFile} | grep -Po '(?<=(about: )).*')           # about
+
+        # Send results back to the user/channel.
+        # Note: if a user send a pm to rosterbot, ${chan} will be set to the user's nick.
+        # say ${chan} "${handle}'s about section was modified:"
+        say ${chan} "${currentAbout}"
+
+        return 0                                # Bot handle is found; return 0.
+    fi
+
+    return 1                                    # Bot handle was not found; return 1.
+}
+
 # This subroutine displays documentation for rosterbot's functionalities.
 
 function helpSubroutine {
@@ -1063,7 +1144,8 @@ if has "${msg}" "^!rosterbot$" || has "${msg}" "^rosterbot: help$" ; then
 elif has "${msg}" "^!alive(\?)?$" || has "${msg}" "^rosterbot: alive(\?)?$" ; then
     str1='running! '
     str2=$(ps aux | grep ./rosterbot | head -n 1 | awk '{ print "[%CPU "$3"]", "[%MEM "$4"]", "[START "$9"]", "[TIME "$10"]" }')
-    str="${str1}${str2}"
+    str3=" [TOT_SIZE $(du -sh | cut -f -1)]"
+    str="${str1}${str2}${str3}"
     say ${chan} "${str}"
 
 # Source.
@@ -1129,8 +1211,11 @@ elif has "${msg}" "^name: " ; then
 
 elif has "${msg}" "^No matching MCECS uid found for " ; then
     while read dest ; do
-        # say ${dest} ${msg}
-        say ${dest} "User not found in CAT roster."
+        botSubroutine "${dest}" "${msg}"
+        if [[ "$?" = "1" ]] ; then
+            # say ${dest} ${msg}
+            say ${dest} "User not found in CAT roster."
+        fi
     done < requester.tmp
     removeTmpSubroutine
 
@@ -1147,7 +1232,10 @@ elif has "${msg}" "^cat uid \(or alias\): .* -> oit uid: " ; then
 
 elif has "${msg}" "^No matching OIT uid found for " ; then
     while read dest ; do
-        say ${dest} ${msg}
+        botSubroutine "${dest}" "${msg}"
+        if [[ "$?" = "1" ]] ; then
+            say ${dest} ${msg}
+        fi
     done < requester.tmp
     removeTmpSubroutine
 
@@ -1184,6 +1272,21 @@ elif has "${msg}" "^!whodahi$" || has "${msg}" "^rosterbot: whodahi$" ; then
 
 elif has "${msg}" "^!whodalo$" || has "${msg}" "^rosterbot: whodalo$" ; then
     whodaSubroutine "lowest"
+
+# TEMPORARY: allow modification of bot roster 'about' field.
+
+elif has "${msg}" "^!about$" ; then
+    say ${chan} "usage: !about spambot walks into a bar ... spambot walks into a bar ... spambot walks into a bar ... spambot walks into a bar ... spambot walks into a bar ... spambot walks into a bar ... spambot walks into a bar ... spambot walks into a bar ..."
+
+elif has "${msg}" "^!about " ; then
+    payload=$(echo ${msg} | sed -r 's/^!about //')
+    handle=$(echo ${payload} | sed -r 's/ .*//')
+    aboutSubroutine "${handle}" "${payload}"
+    if [[ "$?" = "1" ]] ; then
+        say ${dest} "Could not modify bot roster info"
+    else
+        say ${dest} "Modification was successful!"
+    fi
 
 # Have rosterbot send an IRC command to the IRC server.
 
